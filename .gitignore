@@ -109,7 +109,11 @@ jspm_packages/
 # Electron
 dist/
 release/
-build/
+build/*
+!build/appicon.png
+!build/windows/
+build/windows/*
+!build/windows/icon.ico
 *.exe
 *.dmg
 *.app
