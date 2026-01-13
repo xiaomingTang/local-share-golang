@@ -151,8 +151,8 @@ $RECYCLE.BIN/
 .env.production.local
 
 # Package manager lock files
-package-lock.json
-yarn.lock
+# package-lock.json
+# yarn.lock
 # Keep pnpm-lock.yaml for reproducible builds
 # pnpm-lock.yaml
 
