@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+  <title>LocalShare</title>
+</head>
+
+<body>
+  <div id="app">
+    <div class="container">
+      <h1 class="title">LocalShare</h1>
+
+      <div class="card">
+        <div class="row">
+          <button class="btn btn-primary" id="btnPick">选择文件夹并开始共享</button>
+          <button class="btn" id="btnStop" disabled>停止共享</button>
+        </div>
+
+        <div class="kv">
+          <div class="k">共享文件夹</div>
+          <div class="v openable" id="sharedFolder" title="点击打开目录">-</div>
+        </div>
+
+        <div class="kv">
+          <div class="k">访问地址</div>
+          <div class="v copyable" id="serverUrl" title="点击复制">-</div>
+        </div>
+
+        <div class="qrwrap">
+          <img class="qr" id="qr" alt="二维码" />
+        </div>
+
+        <div class="hint">手机和电脑需要在同一局域网</div>
+      </div>
+
+      <div class="card">
+        <div class="kv">
+          <div class="k">右键菜单</div>
+          <div class="v">
+            <button class="ctx-toggle ctx-disabled" id="btnCtx" type="button">检测中...</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="./src/main.js" type="module"></script>
+</body>
+
+</html>

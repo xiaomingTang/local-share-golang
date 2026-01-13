@@ -1,0 +1,173 @@
+/* 防止滚动条出现/消失导致布局抖动：始终保留垂直滚动条空间 */
+html {
+  overflow-y: scroll;
+}
+
+/* 现代浏览器保留滚动条槽位（Chromium 支持） */
+body {
+  scrollbar-gutter: stable;
+}
+
+.container {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 28px 20px;
+}
+
+.title {
+  margin: 0 0 18px;
+  font-size: 28px;
+  letter-spacing: 0.3px;
+}
+
+.card {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 16px;
+  margin-top: 12px;
+}
+
+.row {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.kv {
+  display: flex;
+  gap: 10px;
+  justify-content: start;
+  align-items: center;
+  padding: 8px 0;
+}
+
+.k {
+  width: 110px;
+  opacity: 0.6;
+  text-align: right;
+}
+
+.v {
+  text-align: left;
+  word-break: break-all;
+}
+
+.openable {
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.openable.is-disabled {
+  cursor: default;
+  text-decoration: none;
+  opacity: 0.75;
+}
+
+.copyable {
+  cursor: copy;
+  text-decoration: underline;
+}
+
+.qrwrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 10px;
+}
+
+.qr {
+  position: relative;
+  width: 240px;
+  height: 240px;
+  background: #3e4855;
+  border-radius: 10px;
+}
+
+.qr:not([src])::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: #3e4855;
+}
+
+.hint {
+  opacity: 0.8;
+  margin-top: 10px;
+  font-size: 12px;
+}
+
+.btn {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.08);
+  color: white;
+  border-radius: 10px;
+  padding: 10px 14px;
+  cursor: pointer;
+}
+
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.btn:disabled:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.btn:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.btn-primary {
+  background: rgba(79, 140, 255, 0.45);
+  border-color: rgba(79, 140, 255, 0.65);
+}
+
+.btn-primary:hover {
+  background: rgba(79, 140, 255, 0.6);
+}
+
+.btn-secondary {
+  background: rgba(46, 204, 113, 0.35);
+  border-color: rgba(46, 204, 113, 0.55);
+}
+
+.btn-danger {
+  background: rgba(231, 76, 60, 0.35);
+  border-color: rgba(231, 76, 60, 0.55);
+}
+
+/* Context menu toggle: render as underlined text instead of a button */
+.ctx-toggle {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.ctx-toggle.ctx-enabled {
+  color: rgba(130, 255, 175, 0.9);
+}
+
+.ctx-toggle.ctx-disabled {
+  color: rgba(200, 200, 200, 0.75);
+}
+
+.ctx-toggle:hover {
+  filter: brightness(1.08);
+}
+
+.ctx-toggle:focus-visible {
+  outline: 2px solid rgba(79, 140, 255, 0.7);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
