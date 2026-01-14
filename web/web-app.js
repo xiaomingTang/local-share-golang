@@ -1,4 +1,39 @@
 "use strict";
+
+const scrollLockState = {
+  locked: false,
+  y: 0,
+};
+
+function lockBodyScroll() {
+  if (scrollLockState.locked) return;
+  scrollLockState.locked = true;
+  scrollLockState.y = window.scrollY || 0;
+
+  document.documentElement.classList.add("modal-open");
+  document.body.classList.add("modal-open");
+  document.body.style.position = "fixed";
+  document.body.style.top = `-${scrollLockState.y}px`;
+  document.body.style.left = "0";
+  document.body.style.right = "0";
+  document.body.style.width = "100%";
+}
+
+function unlockBodyScroll() {
+  if (!scrollLockState.locked) return;
+  scrollLockState.locked = false;
+
+  document.documentElement.classList.remove("modal-open");
+  document.body.classList.remove("modal-open");
+  document.body.style.position = "";
+  document.body.style.top = "";
+  document.body.style.left = "";
+  document.body.style.right = "";
+  document.body.style.width = "";
+
+  window.scrollTo(0, scrollLockState.y);
+}
+
 class WebFileManager {
   constructor() {
     this.currentPath = "";
@@ -205,6 +240,8 @@ class WebFileManager {
       this.elements.downloadBtn.onclick = () => this.downloadFile(fileName);
       this.elements.previewModal.style.display = "flex";
 
+      lockBodyScroll();
+
       // 让 Ctrl+A 直接全选文本
       const ta = this.elements.previewContent.querySelector("textarea");
       if (ta) ta.focus();
@@ -278,6 +315,7 @@ class WebFileManager {
 // 全局函数
 function closePreview() {
   document.getElementById("previewModal").style.display = "none";
+  unlockBodyScroll();
 }
 // 初始化
 let fileManager;
