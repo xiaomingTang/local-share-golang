@@ -404,6 +404,8 @@ header h1 {
   font-size: 14px;
   line-height: 1.5;
   white-space: pre;
+  tab-size: 2;
+  -moz-tab-size: 2;
   overflow: auto;
   border: 1px solid #e5e5ea;
   resize: none;
