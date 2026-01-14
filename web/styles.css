@@ -380,7 +380,11 @@ header h1 {
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
 }
 
-.preview-text {
+.preview-textarea {
+  width: 100%;
+  max-width: 80vw;
+  min-width: min(520px, 80vw);
+  height: 60vh;
   background-color: #f8f9fa;
   padding: 20px;
   border-radius: 8px;
@@ -388,10 +392,16 @@ header h1 {
   font-family: "Monaco", "Menlo", monospace;
   font-size: 14px;
   line-height: 1.5;
-  white-space: pre-wrap;
-  word-wrap: break-word;
-  max-height: 60vh;
+  white-space: pre;
   overflow: auto;
+  border: 1px solid #e5e5ea;
+  resize: none;
+  outline: none;
+}
+
+.preview-textarea:focus {
+  border-color: #007aff;
+  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.15);
 }
 
 /* 通知样式 */

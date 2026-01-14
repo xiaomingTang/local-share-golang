@@ -197,13 +197,17 @@ class WebFileManager {
         this.elements.previewContent.innerHTML = `<img src="${imageUrl}" class="preview-image" alt="${fileName}">`;
       } else {
         const text = await response.text();
-        this.elements.previewContent.innerHTML = `<div class="preview-text">${escapeHtml(
+        this.elements.previewContent.innerHTML = `<textarea class="preview-textarea" readonly spellcheck="false" wrap="off">${escapeHtml(
           text
-        )}</div>`;
+        )}</textarea>`;
       }
       // 设置下载按钮
       this.elements.downloadBtn.onclick = () => this.downloadFile(fileName);
       this.elements.previewModal.style.display = "flex";
+
+      // 让 Ctrl+A 直接全选文本
+      const ta = this.elements.previewContent.querySelector("textarea");
+      if (ta) ta.focus();
     } catch (error) {
       this.showNotification("预览文件失败", "error");
     }
