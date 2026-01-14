@@ -18,12 +18,14 @@ import {
 import { toast } from "./toast";
 import { initShareFileDrop } from "./dragdrop/shareFileDrop";
 
-// UI 已在 frontend/index.html 里定义，这里只做事件绑定和数据刷新。
+const GITHUB_REPO_URL =
+  "https://github.com/xiaomingTang/local-share-golang/releases";
 
 const els = {
   btnPick: document.getElementById("btnPick"),
   btnStop: document.getElementById("btnStop"),
   btnCtx: document.getElementById("btnCtx"),
+  githubCorner: document.getElementById("githubCorner"),
   sharedFolder: document.getElementById("sharedFolder"),
   sharedFolderAction: document.getElementById("sharedFolderAction"),
   serverUrl: document.getElementById("serverUrl"),
@@ -225,6 +227,16 @@ els.btnCtx.addEventListener("click", async () => {
     console.error(e);
   }
   await refreshContextMenu();
+});
+
+els.githubCorner?.addEventListener("click", (e) => {
+  e.preventDefault();
+  try {
+    BrowserOpenURL(GITHUB_REPO_URL);
+  } catch (e) {
+    console.error(e);
+    toast.show("打开失败");
+  }
 });
 
 void refreshServer();
