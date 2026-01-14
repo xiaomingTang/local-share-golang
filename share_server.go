@@ -374,13 +374,17 @@ func (s *ShareServer) handlePreview(w http.ResponseWriter, r *http.Request) {
 
 	ext := strings.ToLower(filepath.Ext(fullPath))
 	mimeType := map[string]string{
-		".ico":  "image/jpeg",
+		".ico":  "image/x-icon",
 		".jpg":  "image/jpeg",
 		".jpeg": "image/jpeg",
 		".png":  "image/png",
 		".gif":  "image/gif",
+		".bmp":  "image/bmp",
+		".svg":  "image/svg+xml",
 		".txt":  "text/plain; charset=utf-8",
+		".log":  "text/plain; charset=utf-8",
 		".md":   "text/markdown; charset=utf-8",
+		".csv":  "text/csv; charset=utf-8",
 		".json": "application/json; charset=utf-8",
 		".html": "text/html; charset=utf-8",
 		".xml":  "application/xml; charset=utf-8",
@@ -388,6 +392,7 @@ func (s *ShareServer) handlePreview(w http.ResponseWriter, r *http.Request) {
 		".yaml": "text/yaml; charset=utf-8",
 		".css":  "text/css; charset=utf-8",
 		".js":   "application/javascript; charset=utf-8",
+		".ts":   "text/plain; charset=utf-8",
 	}[ext]
 	if mimeType == "" {
 		mimeType = "application/octet-stream"
