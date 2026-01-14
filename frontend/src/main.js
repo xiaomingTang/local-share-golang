@@ -16,6 +16,7 @@ import {
   EventsOn,
 } from "../wailsjs/runtime/runtime";
 import { createToast } from "./components/toast/toast";
+import { initShareFileDrop } from "./dragdrop/shareFileDrop";
 
 // UI 已在 frontend/index.html 里定义，这里只做事件绑定和数据刷新。
 
@@ -28,12 +29,63 @@ const els = {
   serverUrl: document.getElementById("serverUrl"),
   serverUrlAction: document.getElementById("serverUrlAction"),
   qr: document.getElementById("qr"),
+  dropOverlay: document.getElementById("dropOverlay"),
 };
 
 let ctxMenuExists = false;
 let currentSharedFolder = "";
 
 const toast = createToast();
+
+function getErrorMessage(err) {
+  if (!err) return "";
+  if (typeof err === "string") return err;
+  if (err instanceof Error) return err.message || String(err);
+  if (typeof err === "object") {
+    // Wails 绑定有时会返回 { message: "..." }
+    const msg = err.message || err.error || err.msg;
+    if (typeof msg === "string") return msg;
+  }
+  try {
+    return String(err);
+  } catch {
+    return "";
+  }
+}
+
+function setDropOverlayActive(active) {
+  if (!els.dropOverlay) return;
+  els.dropOverlay.classList.toggle("is-active", !!active);
+}
+
+async function tryStartSharingFromDroppedPaths(paths) {
+  const list = Array.isArray(paths) ? paths.filter(Boolean) : [];
+  if (list.length === 0) {
+    toast.show("没有识别到可共享的文件夹路径（请拖到提示面板上）");
+    return;
+  }
+
+  let lastErr = null;
+  for (const p of list) {
+    try {
+      await StartSharing(p);
+      await refreshServer();
+      toast.show("已开始共享");
+      return;
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+
+  const msg = getErrorMessage(lastErr);
+  if (/不是文件夹/.test(msg)) {
+    toast.show("请拖拽文件夹开始共享");
+  } else if (msg) {
+    toast.show(msg);
+  } else {
+    toast.show("开始共享失败");
+  }
+}
 
 async function copyText(text) {
   const v = (text || "").trim();
@@ -113,7 +165,11 @@ async function refreshContextMenu() {
 els.btnPick.addEventListener("click", async () => {
   const dir = await PickFolder();
   if (!dir) return;
-  await StartSharing(dir);
+  try {
+    await StartSharing(dir);
+  } catch (e) {
+    toast.show(getErrorMessage(e) || "开始共享失败");
+  }
   await refreshServer();
 });
 
@@ -175,6 +231,11 @@ els.btnCtx.addEventListener("click", async () => {
 
 void refreshServer();
 void refreshContextMenu();
+
+initShareFileDrop({
+  setDropOverlayActive,
+  tryStartSharingFromDroppedPaths,
+});
 
 // 当共享状态由“右键菜单/单实例 IPC/启动参数”等路径触发时，
 // 前端不会主动调用 StartSharing，因此需要监听事件来刷新 UI。

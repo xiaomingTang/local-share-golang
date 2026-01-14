@@ -18,6 +18,8 @@
           <button class="btn" id="btnStop" disabled>停止共享</button>
         </div>
 
+        <div class="drop-hint" id="dropHint">也可以把文件夹拖拽到窗口开始共享</div>
+
         <div class="kv">
           <div class="k">共享文件夹</div>
           <div class="v value-with-icon">
@@ -49,6 +51,13 @@
           </div>
         </div>
       </div>
+    </div>
+  </div>
+
+  <div class="drop-overlay wails-drop-target" id="dropOverlay" aria-hidden="true">
+    <div class="drop-overlay__panel">
+      <div class="drop-overlay__title">拖拽文件夹到这里开始共享</div>
+      <div class="drop-overlay__sub">支持拖到窗口任意位置</div>
     </div>
   </div>
   <script src="./src/main.js" type="module"></script>

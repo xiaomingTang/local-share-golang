@@ -79,9 +79,14 @@ func main() {
 	err = wails.Run(&options.App{
 		Title:  "LocalShare",
 		Width:  864,
-		Height: 700,
+		Height: 712,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
+		},
+		DragAndDrop: &options.DragAndDrop{
+			EnableFileDrop:     true,
+			DisableWebViewDrop: true,
+			// CSSDropProperty/CSSDropValue 使用默认值：--wails-drop-target: drop
 		},
 		BackgroundColour: &options.RGBA{R: 27, G: 38, B: 54, A: 1},
 		OnStartup:        app.startup,

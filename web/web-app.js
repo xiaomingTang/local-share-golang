@@ -75,6 +75,13 @@ class WebFileManager {
     window.history.replaceState(null, "", url);
   }
   bindEvents() {
+    const hasFileDrag = (e) => {
+      const types = Array.from(e.dataTransfer?.types || []);
+      return (
+        types.includes("Files") || (e.dataTransfer?.files?.length || 0) > 0
+      );
+    };
+
     // 文件拖拽上传
     this.elements.dropZone.addEventListener("dragover", (e) => {
       e.preventDefault();
@@ -86,8 +93,56 @@ class WebFileManager {
     });
     this.elements.dropZone.addEventListener("drop", (e) => {
       e.preventDefault();
+      e.stopPropagation();
       this.elements.dropZone.classList.remove("drag-over");
       const files = Array.from(e.dataTransfer?.files || []);
+      this.uploadFiles(files);
+    });
+
+    // 全局拖拽：
+    // 1) 防止把文件拖到页面导致浏览器直接打开文件
+    // 2) 支持把文件拖到任意区域也能触发上传
+    let dragDepth = 0;
+    const showGlobalDrag = () =>
+      this.elements.dropZone.classList.add("drag-over");
+    const hideGlobalDrag = () =>
+      this.elements.dropZone.classList.remove("drag-over");
+
+    window.addEventListener("dragenter", (e) => {
+      if (!hasFileDrag(e)) return;
+      if (e.target && e.target.closest && e.target.closest("#dropZone")) return;
+      e.preventDefault();
+      dragDepth++;
+      showGlobalDrag();
+    });
+    window.addEventListener("dragover", (e) => {
+      if (!hasFileDrag(e)) return;
+      if (e.target && e.target.closest && e.target.closest("#dropZone")) return;
+      e.preventDefault();
+      showGlobalDrag();
+    });
+    window.addEventListener("dragleave", (e) => {
+      if (!hasFileDrag(e)) return;
+      if (e.target && e.target.closest && e.target.closest("#dropZone")) return;
+      e.preventDefault();
+      dragDepth = Math.max(0, dragDepth - 1);
+      if (dragDepth === 0) hideGlobalDrag();
+    });
+    window.addEventListener("drop", (e) => {
+      if (!hasFileDrag(e)) return;
+      if (e.target && e.target.closest && e.target.closest("#dropZone")) return;
+      e.preventDefault();
+      dragDepth = 0;
+      hideGlobalDrag();
+
+      const files = Array.from(e.dataTransfer?.files || []);
+      if (files.length === 0) {
+        this.showNotification(
+          "没有检测到可上传的文件（暂不支持拖拽文件夹）",
+          "error"
+        );
+        return;
+      }
       this.uploadFiles(files);
     });
     // 文件选择上传
