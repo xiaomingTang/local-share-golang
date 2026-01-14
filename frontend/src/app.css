@@ -1,13 +1,3 @@
-/* 防止滚动条出现/消失导致布局抖动：始终保留垂直滚动条空间 */
-html {
-  overflow-y: scroll;
-}
-
-/* 现代浏览器保留滚动条槽位（Chromium 支持） */
-body {
-  scrollbar-gutter: stable;
-}
-
 .container {
   max-width: 860px;
   margin: 0 auto;
