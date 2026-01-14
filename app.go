@@ -44,9 +44,6 @@ func (a *App) startup(ctx context.Context) {
 
 	sharePath := strings.TrimSpace(a.initialShare)
 	if sharePath == "" {
-		sharePath = defaultShareFolder()
-	}
-	if sharePath == "" {
 		return
 	}
 
