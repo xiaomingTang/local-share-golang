@@ -143,7 +143,9 @@ class WebFileManager {
                     )}">${icon}</div>
                     <div class="file-info">
                         <div class="file-name">${escapeHtml(item.name)}</div>
-                        <div class="file-details">${size} • ${date}</div>
+                        <div class="file-details">${date}${
+        !!size ? "\u00A0\u00A0\u00A0\u00A0\u00A0" : ""
+      }${size}</div>
                     </div>
                     <div class="file-actions">
                         ${
