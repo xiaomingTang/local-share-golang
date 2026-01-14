@@ -55,6 +55,45 @@ body {
   word-break: break-all;
 }
 
+.value-with-icon {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.value-with-icon .value {
+  min-width: 0;
+  flex: 1;
+}
+
+.value.is-disabled {
+  cursor: default;
+  text-decoration: none;
+  opacity: 0.75;
+}
+
+.icon-link {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.icon-link:disabled {
+  cursor: default;
+  opacity: 0.55;
+  text-decoration: none;
+}
+
+.icon-link:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
 .openable {
   cursor: pointer;
   text-decoration: underline;

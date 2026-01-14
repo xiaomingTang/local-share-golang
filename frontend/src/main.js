@@ -10,7 +10,11 @@ import {
   SetContextMenuEnabled,
   OpenFolder,
 } from "../wailsjs/go/main/App";
-import { ClipboardSetText, EventsOn } from "../wailsjs/runtime/runtime";
+import {
+  BrowserOpenURL,
+  ClipboardSetText,
+  EventsOn,
+} from "../wailsjs/runtime/runtime";
 import { createToast } from "./components/toast/toast";
 
 // UI 已在 frontend/index.html 里定义，这里只做事件绑定和数据刷新。
@@ -20,7 +24,9 @@ const els = {
   btnStop: document.getElementById("btnStop"),
   btnCtx: document.getElementById("btnCtx"),
   sharedFolder: document.getElementById("sharedFolder"),
+  sharedFolderAction: document.getElementById("sharedFolderAction"),
   serverUrl: document.getElementById("serverUrl"),
+  serverUrlAction: document.getElementById("serverUrlAction"),
   qr: document.getElementById("qr"),
 };
 
@@ -28,6 +34,20 @@ let ctxMenuExists = false;
 let currentSharedFolder = "";
 
 const toast = createToast();
+
+async function copyText(text) {
+  const v = (text || "").trim();
+  if (!v || v === "-") return false;
+  try {
+    await ClipboardSetText(v);
+    toast.show("复制成功");
+    return true;
+  } catch (e) {
+    console.error(e);
+    toast.show("复制失败");
+    return false;
+  }
+}
 
 async function refreshServer() {
   try {
@@ -39,7 +59,12 @@ async function refreshServer() {
 
       currentSharedFolder = "";
       els.btnStop.disabled = true;
+
       els.sharedFolder.classList.add("is-disabled");
+      els.sharedFolderAction.disabled = true;
+
+      els.serverUrl.classList.add("is-disabled");
+      els.serverUrlAction.disabled = true;
       return;
     }
 
@@ -47,8 +72,19 @@ async function refreshServer() {
     els.serverUrl.textContent = info.url || "-";
 
     currentSharedFolder = info.sharedFolder || "";
-    els.btnStop.disabled = !currentSharedFolder;
-    els.sharedFolder.classList.toggle("is-disabled", !currentSharedFolder);
+
+    const urlText = (info.url || "").trim();
+    const hasShare = !!currentSharedFolder;
+    const hasUrl = !!urlText;
+
+    els.btnStop.disabled = !hasShare;
+
+    els.sharedFolder.classList.toggle("is-disabled", !hasShare);
+    els.sharedFolderAction.disabled = !hasShare;
+
+    els.serverUrl.classList.toggle("is-disabled", !hasUrl);
+    els.serverUrlAction.disabled = !hasUrl;
+
     if (info.qrCode) {
       els.qr.setAttribute("src", info.qrCode);
     } else {
@@ -89,23 +125,22 @@ els.btnStop.addEventListener("click", async () => {
 
 els.serverUrl.addEventListener("click", async () => {
   const url = (els.serverUrl.textContent || "").trim();
-  if (!url || url === "-") return;
-  try {
-    await ClipboardSetText(url);
-    toast.show("复制成功");
-  } catch (e) {
-    console.error(e);
-  }
+  await copyText(url);
 });
 
 els.sharedFolder.addEventListener("click", async () => {
+  const path = (currentSharedFolder || "").trim();
+  await copyText(path);
+});
+
+els.sharedFolderAction.addEventListener("click", async () => {
+  if (els.sharedFolderAction.disabled) return;
   const path = (currentSharedFolder || "").trim();
   if (!path) return;
   try {
     await OpenFolder(path);
   } catch (e) {
     console.error(e);
-
     const raw = (e && (e.message || (e.toString && e.toString()))) || "";
     const msg = String(raw);
     if (/不存在|not exist/i.test(msg)) {
@@ -113,6 +148,18 @@ els.sharedFolder.addEventListener("click", async () => {
     } else {
       toast.show("打开失败");
     }
+  }
+});
+
+els.serverUrlAction.addEventListener("click", async () => {
+  if (els.serverUrlAction.disabled) return;
+  const url = (els.serverUrl.textContent || "").trim();
+  if (!url || url === "-") return;
+  try {
+    BrowserOpenURL(url);
+  } catch (e) {
+    console.error(e);
+    toast.show("打开失败");
   }
 });
 
