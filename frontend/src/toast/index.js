@@ -1,4 +1,4 @@
-import "./toast.css";
+import "./index.css";
 
 let singleton = null;
 

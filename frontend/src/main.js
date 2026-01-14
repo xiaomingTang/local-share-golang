@@ -15,7 +15,7 @@ import {
   ClipboardSetText,
   EventsOn,
 } from "../wailsjs/runtime/runtime";
-import { createToast } from "./components/toast/toast";
+import { createToast } from "./toast";
 import { initShareFileDrop } from "./dragdrop/shareFileDrop";
 
 // UI 已在 frontend/index.html 里定义，这里只做事件绑定和数据刷新。
