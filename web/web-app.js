@@ -131,13 +131,15 @@ class WebFileManager {
       const nameJs = JSON.stringify(item.name);
       const isDir = item.type === "directory";
       const previewable = canPreview(item);
+
+      const itemClass = item.hidden ? "file-item is-hidden" : "file-item";
       const dblClickHandler = isDir
         ? `ondblclick='if(event.target.closest("button")) return; fileManager.openFolder(${nameJs})'`
         : previewable
         ? `ondblclick='if(event.target.closest("button")) return; fileManager.previewFile(${nameJs})'`
         : "";
       html += `
-                <div class="file-item" ${dblClickHandler}>
+                <div class="${itemClass}" ${dblClickHandler}>
                     <div class="file-icon ${getFileIconClass(
                       item
                     )}">${icon}</div>

@@ -65,6 +65,16 @@ header h1 {
   cursor: pointer;
 }
 
+/* 隐藏文件/文件夹：视觉上减弱，但不要让右侧按钮看起来 disabled */
+.file-item.is-hidden .file-icon,
+.file-item.is-hidden .file-info {
+  opacity: 0.4;
+}
+
+.file-item.is-hidden .file-actions {
+  opacity: 1;
+}
+
 .file-item.disabled {
   cursor: not-allowed;
   opacity: 0.5;

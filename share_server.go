@@ -31,6 +31,7 @@ var webAssets embed.FS
 type directoryItem struct {
 	Name      string  `json:"name"`
 	Type      string  `json:"type"` // "file" | "directory"
+	Hidden    bool    `json:"hidden"`
 	Size      int64   `json:"size"`
 	Modified  string  `json:"modified"`
 	Extension *string `json:"extension"`
@@ -522,6 +523,7 @@ func getDirectoryItems(dirPath string) ([]directoryItem, error) {
 		items = append(items, directoryItem{
 			Name:      name,
 			Type:      map[bool]string{true: "directory", false: "file"}[isDir],
+			Hidden:    isHiddenPath(dirPath, name),
 			Size:      map[bool]int64{true: 0, false: info.Size()}[isDir],
 			Modified:  info.ModTime().UTC().Format(time.RFC3339),
 			Extension: ext,
