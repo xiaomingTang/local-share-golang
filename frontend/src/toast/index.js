@@ -42,3 +42,5 @@ export function createToast() {
   singleton = { show, hide };
   return singleton;
 }
+
+export const toast = createToast();

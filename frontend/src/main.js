@@ -15,7 +15,7 @@ import {
   ClipboardSetText,
   EventsOn,
 } from "../wailsjs/runtime/runtime";
-import { createToast } from "./toast";
+import { toast } from "./toast";
 import { initShareFileDrop } from "./dragdrop/shareFileDrop";
 
 // UI 已在 frontend/index.html 里定义，这里只做事件绑定和数据刷新。
@@ -34,8 +34,6 @@ const els = {
 
 let ctxMenuExists = false;
 let currentSharedFolder = "";
-
-const toast = createToast();
 
 function getErrorMessage(err) {
   if (!err) return "";
