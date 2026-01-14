@@ -99,6 +99,19 @@ class WebFileManager {
       this.uploadFiles(files);
     });
 
+    // 点击/键盘触发选择文件
+    this.elements.dropZone.addEventListener("click", (e) => {
+      // 避免点击按钮时触发两次
+      if (e.target && e.target.closest && e.target.closest("button")) return;
+      this.elements.fileInput.click();
+    });
+    this.elements.dropZone.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        this.elements.fileInput.click();
+      }
+    });
+
     // 全局拖拽：
     // 1) 防止把文件拖到页面导致浏览器直接打开文件
     // 2) 支持把文件拖到任意区域也能触发上传
@@ -325,6 +338,7 @@ class WebFileManager {
     }
     try {
       this.elements.uploadProgress.style.display = "block";
+      this.elements.progressFill.style.width = "0%";
       this.elements.progressText.textContent = "准备上传...";
       const xhr = new XMLHttpRequest();
       xhr.upload.addEventListener("progress", (e) => {
@@ -337,12 +351,19 @@ class WebFileManager {
         }
       });
       xhr.addEventListener("load", () => {
+        let payload = null;
+        try {
+          payload = xhr.responseText ? JSON.parse(xhr.responseText) : null;
+        } catch (_) {
+          payload = null;
+        }
+
         if (xhr.status === 200) {
-          const response = JSON.parse(xhr.responseText);
-          this.showNotification(response.message, "success");
+          this.showNotification(payload?.message || "上传成功", "success");
           this.loadFiles(this.currentPath); // 刷新文件列表
         } else {
-          throw new Error("上传失败");
+          const errMsg = payload?.error || payload?.message || "上传失败";
+          this.showNotification(errMsg, "error");
         }
         this.elements.uploadProgress.style.display = "none";
         this.elements.fileInput.value = ""; // 重置文件选择
