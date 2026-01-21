@@ -1,0 +1,40 @@
+/* Toast/Notification 样式 */
+
+.local-share-toast {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  max-width: min(360px, calc(100vw - 40px));
+  padding: 14px 16px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.4;
+  z-index: 1001;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+  opacity: 0;
+  transform: translateY(-8px);
+  transition:
+    opacity 160ms ease,
+    transform 160ms ease;
+  pointer-events: none;
+  display: none;
+}
+
+.local-share-toast.is-visible {
+  display: block;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.local-share-toast--success {
+  background: #e9f7ef;
+  color: #0f5132;
+  border: 1px solid #a3cfbb;
+}
+
+.local-share-toast--error {
+  background: #fcebea;
+  color: #842029;
+  border: 1px solid #f5c2c7;
+}

@@ -1,5 +1,6 @@
-"use strict";
-function buildBreadcrumbHtml(currentPath, rootLabel) {
+import { escapeHtml } from "./file-utils.js";
+
+export function buildBreadcrumbHtml(currentPath, rootLabel) {
   const parts = currentPath ? currentPath.split("/").filter(Boolean) : [];
   const crumbs = [{ label: rootLabel || "根目录", path: "" }];
   let acc = "";

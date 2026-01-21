@@ -1,17 +1,16 @@
-"use strict";
-function escapeHtml(text) {
+export function escapeHtml(text) {
   const div = document.createElement("div");
   div.textContent = text;
   return div.innerHTML;
 }
-function formatFileSize(bytes) {
+export function formatFileSize(bytes) {
   if (bytes === 0) return "0 B";
   const k = 1024;
   const sizes = ["B", "KB", "MB", "GB", "TB"];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
 }
-function canPreview(item) {
+export function canPreview(item) {
   if (item.type === "directory") return false;
   const ext = item.extension || "";
   const previewableExts = [
@@ -57,7 +56,7 @@ function canPreview(item) {
   ];
   return previewableExts.includes(ext) && item.size < 10 * 1024 * 1024;
 }
-function getFileIcon(item) {
+export function getFileIcon(item) {
   if (item.type === "directory") return "📁";
   const ext = item.extension || "";
   const iconMap = {
@@ -124,7 +123,7 @@ function getFileIcon(item) {
   };
   return iconMap[ext] || "📄";
 }
-function getFileIconClass(item) {
+export function getFileIconClass(item) {
   if (item.type === "directory") return "folder";
   const ext = item.extension || "";
   if ([".ico", ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".svg"].includes(ext))
