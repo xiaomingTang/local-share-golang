@@ -77,6 +77,7 @@ header h1 {
   gap: 10px;
   color: #1d1d1f;
   font-weight: 500;
+  padding-block: 4px;
 }
 
 .selection-count {
@@ -92,8 +93,8 @@ header h1 {
 }
 
 .select-all {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
 }
 
 /* 文件列表样式 */
@@ -155,11 +156,12 @@ header h1 {
   display: inline-flex;
   align-items: center;
   margin-right: 12px;
+  padding: 8px;
 }
 
 .file-select input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
 }
 
 .file-info {

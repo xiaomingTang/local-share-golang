@@ -364,10 +364,10 @@ class WebFileManager {
                 <div class="${itemClass}${isSelected ? " is-selected" : ""}" ${dblClickHandler}>
                     ${
                       item.type === "file"
-                        ? `<div class="file-select"><input class="select-checkbox" type="checkbox" ${
+                        ? `<label class="file-select"><input class="select-checkbox" type="checkbox" ${
                             isSelected ? "checked" : ""
-                          } onclick='event.stopPropagation(); fileManager.toggleSelect(${nameJs}, this.checked, this)' /></div>`
-                        : `<div class="file-select" aria-hidden="true"></div>`
+                          } onclick='event.stopPropagation(); fileManager.toggleSelect(${nameJs}, this.checked, this)' /></label>`
+                        : `<label class="file-select" aria-hidden="true"></label>`
                     }
                     <div class="file-icon ${getFileIconClass(
                       item,
