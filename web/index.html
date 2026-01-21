@@ -19,6 +19,19 @@
     </header>
 
     <main>
+      <!-- 多选工具栏 -->
+      <div id="selectionBar" class="selection-bar" aria-label="多选操作栏">
+        <label class="selection-left">
+          <input id="selectAllCheckbox" type="checkbox" class="select-all" />
+          <span id="selectionCount" class="selection-count">已选 0 项</span>
+        </label>
+        <div class="selection-actions">
+          <button id="btnBatchDownload" type="button" class="btn btn-primary btn-small" disabled>下载选中</button>
+          <button id="btnBatchDelete" type="button" class="btn btn-danger btn-small" disabled>删除选中</button>
+          <button id="btnClearSelection" type="button" class="btn btn-outline btn-small" disabled>取消</button>
+        </div>
+      </div>
+
       <!-- 文件列表 -->
       <div id="fileList" class="file-list">
         <div class="file-item loading">加载中...</div>
