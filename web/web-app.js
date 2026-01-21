@@ -152,7 +152,7 @@ class WebFileManager {
       if (files.length === 0) {
         this.showNotification(
           "没有检测到可上传的文件（暂不支持拖拽文件夹）",
-          "error"
+          "error",
         );
         return;
       }
@@ -178,9 +178,10 @@ class WebFileManager {
   }
   async loadFiles(path = "") {
     try {
-      this.elements.fileList.innerHTML = '<div class="loading">加载中...</div>';
+      this.elements.fileList.innerHTML =
+        '<div class="file-item loading">加载中...</div>';
       const response = await fetch(
-        `/api/files?path=${encodeURIComponent(path)}`
+        `/api/files?path=${encodeURIComponent(path)}`,
       );
       const data = await response.json();
       if (!response.ok) {
@@ -203,7 +204,7 @@ class WebFileManager {
           <div class="file-info">
             <div class="file-name">${buildBreadcrumbHtml(
               this.currentPath,
-              this.rootName
+              this.rootName,
             )}</div>
           </div>
         </div>
@@ -221,7 +222,7 @@ class WebFileManager {
             <div class="file-info">
               <div class="file-name">${buildBreadcrumbHtml(
                 this.currentPath,
-                this.rootName
+                this.rootName,
               )}</div>
             </div>
           </div>
@@ -239,18 +240,18 @@ class WebFileManager {
       const dblClickHandler = isDir
         ? `ondblclick='if(event.target.closest("button")) return; fileManager.openFolder(${nameJs})'`
         : previewable
-        ? `ondblclick='if(event.target.closest("button")) return; fileManager.previewFile(${nameJs})'`
-        : "";
+          ? `ondblclick='if(event.target.closest("button")) return; fileManager.previewFile(${nameJs})'`
+          : "";
       html += `
                 <div class="${itemClass}" ${dblClickHandler}>
                     <div class="file-icon ${getFileIconClass(
-                      item
+                      item,
                     )}">${icon}</div>
                     <div class="file-info">
                         <div class="file-name">${escapeHtml(item.name)}</div>
                         <div class="file-details">${date}${
-        !!size ? "\u00A0\u00A0\u00A0\u00A0\u00A0" : ""
-      }${size}</div>
+                          !!size ? "\u00A0\u00A0\u00A0\u00A0\u00A0" : ""
+                        }${size}</div>
                     </div>
                     <div class="file-actions">
                         ${
@@ -286,7 +287,7 @@ class WebFileManager {
         ? `${this.currentPath}/${fileName}`
         : fileName;
       const response = await fetch(
-        `/api/preview?path=${encodeURIComponent(filePath)}`
+        `/api/preview?path=${encodeURIComponent(filePath)}`,
       );
       if (!response.ok) {
         throw new Error("预览失败");
@@ -301,7 +302,7 @@ class WebFileManager {
       } else {
         const text = await response.text();
         this.elements.previewContent.innerHTML = `<textarea class="preview-textarea" readonly spellcheck="false" wrap="off">${escapeHtml(
-          text
+          text,
         )}</textarea>`;
       }
       // 设置下载按钮
@@ -346,7 +347,7 @@ class WebFileManager {
           const percent = (e.loaded / e.total) * 100;
           this.elements.progressFill.style.width = `${percent}%`;
           this.elements.progressText.textContent = `上传中... ${Math.round(
-            percent
+            percent,
           )}%`;
         }
       });
