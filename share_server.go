@@ -18,6 +18,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -724,13 +725,38 @@ func (s *ShareServer) handleDelete(w http.ResponseWriter, r *http.Request) {
 
 func safeJoin(sharedRoot string, subPath string) (string, bool) {
 	root := filepath.Clean(sharedRoot)
+	if runtime.GOOS == "windows" {
+		// Windows volume roots are special:
+		// - filepath.Clean("D:") keeps the trailing separator
+		// - filepath.Clean("D:") and building prefix as root+"\\" would create "D:\\\\" and break HasPrefix
+		// - filepath.Clean("D:") might also become "D:" in some paths; normalize to "D:\\".
+		vol := filepath.VolumeName(root)
+		if vol != "" && strings.EqualFold(root, vol) {
+			root = vol + string(os.PathSeparator)
+		}
+	}
 	sub := filepath.FromSlash(strings.TrimSpace(subPath))
 	full := filepath.Clean(filepath.Join(root, sub))
+
+	// Build prefix with exactly one path separator.
+	prefix := root
+	if !strings.HasSuffix(prefix, string(os.PathSeparator)) {
+		prefix = prefix + string(os.PathSeparator)
+	}
+
+	if runtime.GOOS == "windows" {
+		if strings.EqualFold(full, root) {
+			return full, true
+		}
+		if strings.HasPrefix(strings.ToLower(full), strings.ToLower(prefix)) {
+			return full, true
+		}
+		return "", false
+	}
 
 	if full == root {
 		return full, true
 	}
-	prefix := root + string(os.PathSeparator)
 	if strings.HasPrefix(full, prefix) {
 		return full, true
 	}

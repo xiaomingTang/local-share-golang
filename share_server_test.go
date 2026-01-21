@@ -9,6 +9,8 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"testing"
 )
 
@@ -115,5 +117,29 @@ func TestShareServerDelete(t *testing.T) {
 	}
 	if _, err := os.Stat(pb); !os.IsNotExist(err) {
 		t.Fatalf("expected b.txt to be deleted, stat err=%v", err)
+	}
+}
+
+func TestSafeJoinWindowsDriveRoot(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("windows-only")
+	}
+
+	// Ensure drive root with trailing separator works.
+	full, ok := safeJoin(`D:\\`, `Windows`)
+	if !ok {
+		t.Fatalf("expected safeJoin(D:\\\\, Windows) ok")
+	}
+	if !strings.EqualFold(full, filepath.Clean(`D:\\Windows`)) {
+		t.Fatalf("unexpected full path: %q", full)
+	}
+
+	// Ensure bare volume root (D:) is normalized.
+	full2, ok2 := safeJoin(`D:`, `Windows`)
+	if !ok2 {
+		t.Fatalf("expected safeJoin(D:, Windows) ok")
+	}
+	if !strings.EqualFold(full2, filepath.Clean(`D:\\Windows`)) {
+		t.Fatalf("unexpected full path: %q", full2)
 	}
 }
