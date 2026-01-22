@@ -281,3 +281,33 @@
   outline-offset: 3px;
   border-radius: 6px;
 }
+
+.sub-action {
+  display: inline-block;
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 4px 8px;
+  margin: -4px -8px 0 0;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.sub-action:hover:not(:disabled) {
+  opacity: 0.95;
+}
+
+.sub-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.75;
+  text-decoration: none;
+}
+
+.sub-action:focus-visible {
+  outline: 2px solid rgba(79, 140, 255, 0.7);
+  outline-offset: 3px;
+  border-radius: 6px;
+}

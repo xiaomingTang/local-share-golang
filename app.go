@@ -18,6 +18,9 @@ type App struct {
 
 	ipcOnce     sync.Once
 	ipcListener net.Listener
+
+	pendingUpdateMu sync.Mutex
+	pendingUpdate   *pendingUpdate
 }
 
 func (a *App) emitServerInfoChanged() {

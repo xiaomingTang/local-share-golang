@@ -9,6 +9,10 @@ import {
   CheckContextMenuExists,
   SetContextMenuEnabled,
   OpenFolder,
+  CheckForUpdate,
+  DownloadLatestUpdate,
+  ApplyDownloadedUpdate,
+  GetVersion,
 } from "../wailsjs/go/main/App";
 import {
   BrowserOpenURL,
@@ -25,6 +29,7 @@ const els = {
   btnPick: document.getElementById("btnPick"),
   btnStop: document.getElementById("btnStop"),
   btnCtx: document.getElementById("btnCtx"),
+  btnUpdateCheck: document.getElementById("btnUpdateCheck"),
   githubCorner: document.getElementById("githubCorner"),
   sharedFolder: document.getElementById("sharedFolder"),
   sharedFolderAction: document.getElementById("sharedFolderAction"),
@@ -36,6 +41,7 @@ const els = {
 
 let ctxMenuExists = false;
 let currentSharedFolder = "";
+let updateBusy = false;
 
 function getErrorMessage(err) {
   if (!err) return "";
@@ -227,6 +233,82 @@ els.btnCtx.addEventListener("click", async () => {
     console.error(e);
   }
   await refreshContextMenu();
+});
+
+els.btnUpdateCheck?.addEventListener("click", async () => {
+  if (updateBusy) return;
+  updateBusy = true;
+
+  const btn = els.btnUpdateCheck;
+  const prevText = btn?.textContent || "检查更新";
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = "检查中...";
+  }
+
+  try {
+    const info = await CheckForUpdate();
+    if (!info || !info.latestVersion) {
+      toast.show("检查失败");
+      return;
+    }
+
+    if (!info.hasUpdate) {
+      let v = "";
+      try {
+        v = await GetVersion();
+      } catch {
+        v = info.currentVersion || "";
+      }
+      toast.show(`已是最新版本${v ? "（" + v + "）" : ""}`);
+      return;
+    }
+
+    const currentV = (info.currentVersion || "").trim();
+    const latestV = (info.latestVersion || "").trim();
+
+    const okDownload = window.confirm(
+      `当前版本 ${currentV || "(未知)"}, 最新版本 ${latestV}，是否立即更新？`,
+    );
+    if (!okDownload) return;
+
+    if (btn) btn.textContent = "下载中...";
+    const result = await DownloadLatestUpdate();
+
+    let downloadsDir = result?.downloadsDir || "";
+    if (!downloadsDir) {
+      try {
+        downloadsDir = await GetDownloadsDir();
+      } catch {
+        downloadsDir = "Downloads";
+      }
+    }
+    const okApply = window.confirm(
+      `下载完成，是否立即将 app 更新为最新版？\n\n下载位置：${downloadsDir}\n\n提示：替换会导致 app 重启。`,
+    );
+    if (!okApply) {
+      toast.show("已下载到 Downloads");
+      return;
+    }
+
+    if (btn) btn.textContent = "更新中...";
+    await ApplyDownloadedUpdate();
+  } catch (e) {
+    console.error(e);
+    const msg = getErrorMessage(e) || "操作失败";
+
+    if (/SHA256/i.test(msg)) {
+      window.alert(msg);
+    } else {
+      toast.show(msg);
+    }
+  } finally {
+    updateBusy = false;
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = prevText;
+    }
+  }
 });
 
 els.githubCorner?.addEventListener("click", (e) => {
