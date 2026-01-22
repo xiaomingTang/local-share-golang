@@ -1,5 +1,8 @@
 import "./index.css";
 
+/**
+ * @type {Toast|null}
+ */
 let singleton = null;
 
 function ensureToastElement() {
@@ -15,6 +18,15 @@ function ensureToastElement() {
   return el;
 }
 
+/**
+ * @typedef {Object} Toast
+ * @property {function(string, number=): void} show - Show a toast message for a specified duration (default 2500ms)
+ * @property {function(): void} hide - Hide the toast message immediately
+ */
+
+/**
+ * @returns {Toast}
+ */
 export function createToast() {
   if (singleton) return singleton;
 
@@ -25,7 +37,7 @@ export function createToast() {
     el.classList.remove("is-visible");
   }
 
-  function show(message, durationMs = 900) {
+  function show(message, durationMs = 2500) {
     if (!message) return;
     if (timer) {
       clearTimeout(timer);
