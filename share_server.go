@@ -57,10 +57,16 @@ type ShareServer struct {
 
 	server   *http.Server
 	listener net.Listener
+
+	events *sseHub
+
+	watchMu   sync.Mutex
+	watcher   *directoryWatcher
+	watchRoot string
 }
 
 func NewShareServer() *ShareServer {
-	return &ShareServer{}
+	return &ShareServer{events: newSSEHub()}
 }
 
 func (s *ShareServer) IsRunning() bool {
@@ -104,8 +110,6 @@ func (s *ShareServer) Start(ctx context.Context, folderPath string) (*ServerInfo
 	}
 
 	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	if s.server != nil {
 		// 共享服务已在运行时，不要重新绑定端口（避免右键再次共享导致端口变化）。
 		// 仅更新共享目录与（可选）本机 IP / 二维码。
@@ -121,14 +125,19 @@ func (s *ShareServer) Start(ctx context.Context, folderPath string) (*ServerInfo
 			}
 		}
 
-		return &ServerInfo{
+		info := &ServerInfo{
 			URL:          urlStr,
 			Port:         s.port,
 			LocalIP:      s.localIP,
 			QRCode:       s.qrCode,
 			SharedFolder: s.sharedRoot,
-		}, nil
+		}
+		s.mu.Unlock()
+		// best-effort: restart watcher for new root
+		s.resetWatcher(absRoot)
+		return info, nil
 	}
+	s.mu.Unlock()
 
 	ip, err := getLocalIPv4()
 	if err != nil {
@@ -139,15 +148,10 @@ func (s *ShareServer) Start(ctx context.Context, folderPath string) (*ServerInfo
 		return nil, err
 	}
 
-	s.sharedRoot = absRoot
-	s.localIP = ip
-	s.port = port
-	s.listener = ln
-
 	mux := http.NewServeMux()
 	s.registerRoutes(mux)
 
-	s.server = &http.Server{
+	srv := &http.Server{
 		Handler:           mux,
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       0,
@@ -155,26 +159,63 @@ func (s *ShareServer) Start(ctx context.Context, folderPath string) (*ServerInfo
 		IdleTimeout:       60 * time.Second,
 	}
 
-	urlStr := fmt.Sprintf("http://%s:%d", s.localIP, s.port)
+	urlStr := fmt.Sprintf("http://%s:%d", ip, port)
 	png, err := qrcode.Encode(urlStr, qrcode.Medium, 256)
 	if err != nil {
 		_ = ln.Close()
-		s.server = nil
 		return nil, err
 	}
-	s.qrCode = "data:image/png;base64," + base64.StdEncoding.EncodeToString(png)
+	qrData := "data:image/png;base64," + base64.StdEncoding.EncodeToString(png)
+
+	// Commit server state under lock (another goroutine might have started it).
+	s.mu.Lock()
+	if s.server != nil {
+		// Someone started it; keep existing port, just update shared root.
+		_ = ln.Close()
+		s.sharedRoot = absRoot
+		if ip2, ipErr := getLocalIPv4(); ipErr == nil {
+			s.localIP = ip2
+		}
+		urlStr2 := fmt.Sprintf("http://%s:%d", s.localIP, s.port)
+		if s.localIP != "" && s.port > 0 {
+			if png2, qrErr := qrcode.Encode(urlStr2, qrcode.Medium, 256); qrErr == nil {
+				s.qrCode = "data:image/png;base64," + base64.StdEncoding.EncodeToString(png2)
+			}
+		}
+		info := &ServerInfo{
+			URL:          urlStr2,
+			Port:         s.port,
+			LocalIP:      s.localIP,
+			QRCode:       s.qrCode,
+			SharedFolder: s.sharedRoot,
+		}
+		s.mu.Unlock()
+		s.resetWatcher(absRoot)
+		return info, nil
+	}
+
+	s.sharedRoot = absRoot
+	s.localIP = ip
+	s.port = port
+	s.listener = ln
+	s.server = srv
+	s.qrCode = qrData
+
+	info := &ServerInfo{
+		URL:          urlStr,
+		Port:         port,
+		LocalIP:      ip,
+		QRCode:       qrData,
+		SharedFolder: absRoot,
+	}
+	s.mu.Unlock()
 
 	go func() {
-		_ = s.server.Serve(ln)
+		_ = srv.Serve(ln)
 	}()
 
-	return &ServerInfo{
-		URL:          urlStr,
-		Port:         s.port,
-		LocalIP:      s.localIP,
-		QRCode:       s.qrCode,
-		SharedFolder: s.sharedRoot,
-	}, nil
+	s.resetWatcher(absRoot)
+	return info, nil
 }
 
 func (s *ShareServer) Stop(ctx context.Context) error {
@@ -187,6 +228,9 @@ func (s *ShareServer) stopLocked(ctx context.Context) error {
 	if s.server == nil {
 		return nil
 	}
+
+	// Stop directory watcher before tearing down state.
+	s.stopWatcher()
 
 	shutdownCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
@@ -249,11 +293,20 @@ func (s *ShareServer) registerRoutes(mux *http.ServeMux) {
 	})
 
 	mux.HandleFunc("/api/files", s.handleFiles)
+	mux.HandleFunc("/api/events", s.handleEvents)
 	mux.HandleFunc("/api/download", s.handleDownload)
 	mux.HandleFunc("/api/download-zip", s.handleDownloadZip)
 	mux.HandleFunc("/api/preview", s.handlePreview)
 	mux.HandleFunc("/api/upload", s.handleUpload)
 	mux.HandleFunc("/api/delete", s.handleDelete)
+}
+
+func (s *ShareServer) handleEvents(w http.ResponseWriter, r *http.Request) {
+	if s.events == nil {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		return
+	}
+	s.events.ServeHTTP(w, r)
 }
 
 func (s *ShareServer) handleFiles(w http.ResponseWriter, r *http.Request) {
@@ -731,8 +784,11 @@ func safeJoin(sharedRoot string, subPath string) (string, bool) {
 		// - filepath.Clean("D:") and building prefix as root+"\\" would create "D:\\\\" and break HasPrefix
 		// - filepath.Clean("D:") might also become "D:" in some paths; normalize to "D:\\".
 		vol := filepath.VolumeName(root)
-		if vol != "" && strings.EqualFold(root, vol) {
-			root = vol + string(os.PathSeparator)
+		if vol != "" {
+			// Depending on Go version, Clean("D:") can be "D:", "D:", or even "D:.".
+			if strings.EqualFold(root, vol) || strings.EqualFold(root, vol+".") || strings.EqualFold(root, vol+string(os.PathSeparator)+".") {
+				root = vol + string(os.PathSeparator)
+			}
 		}
 	}
 	sub := filepath.FromSlash(strings.TrimSpace(subPath))

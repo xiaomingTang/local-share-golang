@@ -18,6 +18,9 @@ class WebFileManager {
     this.selectedPaths = new Set();
     this.lastItems = [];
 
+    this.eventSource = null;
+    this.refreshTimer = null;
+
     this.elements = {
       fileList: document.getElementById("fileList"),
       uploadTarget: document.getElementById("uploadTarget"),
@@ -48,7 +51,40 @@ class WebFileManager {
     this.bindSelectionActions();
     this.updateSelectionBar();
 
+    this.startEventSource();
+
     this.loadFiles(initialPath);
+  }
+
+  startEventSource() {
+    if (typeof window.EventSource === "undefined") return;
+    try {
+      const es = new EventSource("/api/events");
+      es.addEventListener("dirsChanged", (ev) => {
+        try {
+          const payload = JSON.parse(ev.data || "{}");
+          const dirs = Array.isArray(payload.dirs) ? payload.dirs : [];
+          const current = (this.currentPath || "").trim();
+          if (dirs.includes(current)) {
+            this.scheduleSilentRefresh();
+          }
+        } catch {
+          // ignore malformed events
+        }
+      });
+      this.eventSource = es;
+    } catch {
+      // ignore connection errors; user can refresh manually
+    }
+  }
+
+  scheduleSilentRefresh() {
+    if (this.refreshTimer) {
+      window.clearTimeout(this.refreshTimer);
+    }
+    this.refreshTimer = window.setTimeout(() => {
+      void this.loadFiles(this.currentPath, { silent: true });
+    }, 250);
   }
 
   bindSelectionActions() {
@@ -275,10 +311,14 @@ class WebFileManager {
     window.history.replaceState(null, "", url);
   }
   // 上传/预览事件已迁移到 upload.js / preview.js
-  async loadFiles(path = "") {
+  async loadFiles(path = "", opts = {}) {
+    const { silent = false } = opts || {};
     try {
-      this.elements.fileList.innerHTML =
-        '<div class="file-item loading">加载中...</div>';
+      const prevPath = this.currentPath;
+      if (!silent) {
+        this.elements.fileList.innerHTML =
+          '<div class="file-item loading">加载中...</div>';
+      }
       const response = await fetch(
         `/api/files?path=${encodeURIComponent(path)}`,
       );
@@ -286,12 +326,29 @@ class WebFileManager {
       if (!response.ok) {
         throw new Error(data.error || "加载文件失败");
       }
+
+      const isPathChange = prevPath !== path;
+
       this.currentPath = path;
       this.rootName = data.rootName || this.rootName;
 
-      // 切换目录时清空选择，避免跨目录误操作
-      this.selectedPaths.clear();
+      // 仅在切换目录时清空选择，避免跨目录误操作；同目录自动刷新尽量保留选择。
+      if (isPathChange) {
+        this.selectedPaths.clear();
+      }
       this.lastItems = Array.isArray(data.items) ? data.items : [];
+
+      // 同目录刷新时：清理已不存在的选择项。
+      if (!isPathChange && this.selectedPaths.size > 0) {
+        const existing = new Set(
+          (this.lastItems || [])
+            .filter((it) => it.type === "file")
+            .map((it) => this.buildFilePath(it.name)),
+        );
+        for (const p of Array.from(this.selectedPaths)) {
+          if (!existing.has(p)) this.selectedPaths.delete(p);
+        }
+      }
 
       this.syncPathToUrl(this.currentPath);
       this.updateUploadTarget();
