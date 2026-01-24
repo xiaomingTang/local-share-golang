@@ -4,9 +4,12 @@
 
 本项目为**纯绿色应用（免安装/便携版）**：下载/解压后即可运行，不依赖系统服务。可选功能（Windows 资源管理器右键菜单）会写入当前用户注册表（HKCU），无需管理员权限，可随时在应用内关闭。
 
-## preview
+## 预览
 
-![preview](./assets/preview.png)
+- 客户端
+  ![客户端预览](./docs/assets/preview.png)
+- 网页文件管理页面
+  ![网页文件管理页面预览](./docs/assets/preview-web.png)
 
 ## 主要功能
 
@@ -48,19 +51,62 @@
 
 ## 常见问题
 
-### 1) 其他设备打不开 URL
+### 1) 只需要在一台 Windows 电脑下载并运行吗？其他设备也要装吗？
 
-- 确保两台设备在同一局域网
+LocalShare 在 Windows 上启动共享服务；**其他设备**（手机、Mac 或其他电脑）**无需**安装客户端，只要在同一 Wi‑Fi/同一网络内用浏览器访问地址即可进行文件浏览、上传、下载和预览。
+
+### 2) 它是绿色软件吗？需要安装吗？
+
+是纯绿色免安装：解压即用。删除程序文件夹即可卸载。
+
+提示：唯一可能的系统改动来自“可选的 Windows 右键菜单”。不开启就不会写入注册表。
+
+### 3) 需要管理员权限吗？
+
+不需要。应用本身可直接运行；可选右键菜单写入的是当前用户注册表（HKCU），同样无需管理员权限。
+
+### 4) 其他设备打不开 URL
+
+- 确保两台设备在同一局域网（同一 Wi‑Fi/同网段）
 - 检查 Windows 防火墙/安全软件是否拦截该程序的入站访问
 - 确认电脑没有同时启用多个网络导致 IP 选择不正确（可尝试切换网络后重新开始共享）
 
-### 2) 端口会变化吗？
+### 5) 端口会变化吗？
 
 首次启动共享会自动选择一个可用端口；在共享服务已运行时，重复“共享”只会切换共享目录，尽量保持端口不变。
 
-### 3) 重复启动程序会怎样？
+### 6) 重复启动程序会怎样？
 
 程序为单实例：如果已有实例在运行，新启动会把 `--share` 指定的目录转发给已运行实例，并唤醒窗口到前台。
+
+### 7) 我启用了右键菜单，后来直接删了应用，右键菜单还残留怎么办？
+
+> 建议：删除应用前先检查一下——如果你曾启用过右键菜单，先在 LocalShare 界面里一键取消右键菜单，再删除应用会更省心。
+
+右键菜单属于注册表项，删除程序文件并不会自动清理。可以按以下方式移除（仅影响当前用户）：
+
+方法 A：PowerShell 一键清理（推荐）
+
+```powershell
+reg.exe delete "HKCU\Software\Classes\Directory\shell\ShareFolder\command" /f
+reg.exe delete "HKCU\Software\Classes\Directory\shell\ShareFolder" /f
+reg.exe delete "HKCU\Software\Classes\Directory\Background\shell\ShareFolder\command" /f
+reg.exe delete "HKCU\Software\Classes\Directory\Background\shell\ShareFolder" /f
+
+# 让资源管理器刷新右键菜单（可选）
+Stop-Process -Name explorer -Force
+Start-Process explorer
+```
+
+方法 B：手动清理（图形界面）
+
+1. 按 Win + R，输入 `regedit` 回车。
+2. 依次定位并删除以下键（如存在）：
+
+- `HKEY_CURRENT_USER\Software\Classes\Directory\shell\ShareFolder`
+- `HKEY_CURRENT_USER\Software\Classes\Directory\Background\shell\ShareFolder`
+
+3. 重启资源管理器或注销/重启电脑，使右键菜单刷新。
 
 ## 开发与构建（开发者）
 

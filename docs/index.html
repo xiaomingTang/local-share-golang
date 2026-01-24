@@ -1,0 +1,381 @@
+<!doctype html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+
+  <title>LocalShare：Windows 一键共享文件夹，手机/电脑用浏览器访问</title>
+  <meta name="description"
+    content="LocalShare 是一个纯绿色免安装的 Windows 局域网文件共享工具：只需在一台 Windows 电脑下载并运行，其他设备无需安装客户端，直接用浏览器访问即可共享与管理文件（同一 Wi‑Fi/同一网络）。" />
+  <meta name="keywords" content="Wi-Fi 文件共享,局域网 文件共享,Windows 共享文件夹,浏览器 访问,免安装,绿色软件,无需管理员权限" />
+  <meta name="robots" content="index,follow,max-snippet:-1,max-image-preview:large,max-video-preview:-1" />
+  <meta name="theme-color" content="#0b1220" />
+
+  <link rel="canonical" href="https://xiaomingtang.github.io/local-share-golang/" />
+  <link rel="icon" href="./assets/icon.ico" sizes="any" />
+  <link rel="icon" type="image/png" href="./assets/appicon.png" />
+
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="LocalShare：Windows 一键共享文件夹，手机/电脑用浏览器访问" />
+  <meta property="og:description"
+    content="只需在一台 Windows 电脑下载并运行，其他设备无需安装客户端，直接浏览器访问即可共享与管理文件（同一 Wi‑Fi/同一网络）。纯绿色免安装、无需管理员权限。" />
+  <meta property="og:url" content="https://xiaomingtang.github.io/local-share-golang/" />
+
+  <meta name="twitter:card" content="summary" />
+
+  <link rel="stylesheet" href="./styles.css" />
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "LocalShare",
+    "applicationCategory": "UtilitiesApplication",
+    "operatingSystem": "Windows",
+    "description": "LocalShare 是一个纯绿色免安装的 Windows Wi‑Fi 文件共享工具：只需在一台 Windows 电脑下载并运行，其他设备无需安装客户端，直接用浏览器访问即可共享与管理文件（同一 Wi‑Fi/同一网络）。",
+    "url": "https://xiaomingtang.github.io/local-share-golang/",
+    "downloadUrl": "https://github.com/xiaomingTang/local-share-golang/releases/latest",
+    "isAccessibleForFree": true
+  }
+  </script>
+</head>
+
+<body>
+  <a class="skip" href="#content">跳到主要内容</a>
+
+  <header class="header">
+    <div class="container header__inner">
+      <a class="brand" href="#top" aria-label="LocalShare">
+        <span class="brand__logo" aria-hidden="true"></span>
+        <span class="brand__name">LocalShare</span>
+      </a>
+      <nav class="nav" aria-label="主导航">
+        <a href="#features">特性</a>
+        <a href="#how">使用方法</a>
+        <a href="#faq">Q&A</a>
+        <a class="btn btn--ghost" href="https://github.com/xiaomingTang/local-share-golang" target="_blank"
+          rel="noopener">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="content">
+    <section class="hero" id="top">
+      <div class="container hero__grid">
+        <div class="hero__copy">
+          <p class="badge">同 Wi‑Fi 下文件共享 · 浏览器访问 · 纯绿色</p>
+          <h1>只需一台 <span class="gradient">Windows</span> 电脑运行，其他设备用浏览器就能共享文件</h1>
+          <p class="lead">
+            LocalShare 会在你的电脑上启动一个本地 HTTP 服务：手机、平板、Mac 或其他电脑都无需安装任何客户端，
+            只要在同一 Wi‑Fi（或同一路由器下的同一网络）里用浏览器打开地址，即可访问、上传、下载、预览与管理文件。
+          </p>
+
+          <div class="hero__cta">
+            <a class="btn btn--primary" href="https://github.com/xiaomingTang/local-share-golang/releases/latest"
+              target="_blank" rel="noopener">下载最新版（Windows）</a>
+            <button class="btn btn--soft" type="button" id="btnCopyRelease">复制下载链接</button>
+            <a class="btn btn--ghost" href="#how">快速开始</a>
+          </div>
+
+          <ul class="highlights" aria-label="核心卖点">
+            <li><strong>纯绿色免安装</strong>：解压即用，删除文件夹即可卸载</li>
+            <li><strong>无需管理员权限</strong>：默认不修改系统设置</li>
+            <li><strong>多端零负担</strong>：其他设备只要浏览器即可访问（同一 Wi‑Fi）</li>
+          </ul>
+
+          <div class="notice" role="note">
+            <div class="notice__title">适用场景</div>
+            <div class="notice__body">手机和电脑互相分享文件、家庭多设备互传资料、会议室内快速分发/收集文件（同一 Wi‑Fi 内）。</div>
+          </div>
+        </div>
+
+        <div class="hero__panel" aria-hidden="true">
+          <div class="mock">
+            <div class="mock__body">
+              <a class="hero-shot" href="assets/preview.png" target="_blank" rel="noopener">
+                <img src="assets/preview.png" width="867" height="774" loading="lazy" decoding="async"
+                  alt="LocalShare 客户端界面截图" />
+              </a>
+            </div>
+          </div>
+          <p class="muted">真实截图：客户端界面（点击可查看原图）</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section section--alt" id="preview">
+      <div class="container">
+        <h2>界面预览</h2>
+        <p class="sub">两张真实截图：EXE 客户端界面与浏览器文件管理页面（点击可查看原图）。</p>
+
+        <div class="preview-grid" aria-label="界面预览截图">
+          <figure class="preview-card">
+            <div class="preview__frame" role="group" aria-label="客户端界面截图">
+              <a href="assets/preview.png" target="_blank" rel="noopener">
+                <img class="preview__img" src="assets/preview.png" width="867" height="774" loading="lazy"
+                  decoding="async" alt="LocalShare EXE 客户端界面截图" />
+              </a>
+            </div>
+            <figcaption class="preview__caption">客户端界面（EXE 运行）</figcaption>
+          </figure>
+
+          <figure class="preview-card">
+            <div class="preview__frame" role="group" aria-label="网页文件管理页面截图">
+              <a href="assets/preview-web.png" target="_blank" rel="noopener">
+                <img class="preview__img" src="assets/preview-web.png" width="1553" height="2455" loading="lazy"
+                  decoding="async" alt="LocalShare 网页文件管理页面截图" />
+              </a>
+            </div>
+            <figcaption class="preview__caption">网页文件管理页面（浏览器访问）</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="features">
+      <div class="container">
+        <h2>为什么是 LocalShare？</h2>
+        <p class="sub">为“快速、便捷地共享文件”而生：不折腾、不要求对方装客户端，打开浏览器就能用。</p>
+
+        <div class="grid">
+          <article class="card">
+            <div class="card__head">
+              <span class="card__icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M7 7h10a3 3 0 0 1 3 3v7H4v-7a3 3 0 0 1 3-3Z" stroke="currentColor" stroke-width="1.7" />
+                  <path d="M9 20h6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+                  <path d="M8.5 13.5l2.5-2.5 2 2 2.5-2.5" stroke="currentColor" stroke-width="1.7"
+                    stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+              </span>
+              <h3>一台运行，多端访问</h3>
+            </div>
+            <p>只需要在 Windows 电脑上下载并运行。手机、平板、Mac 或其他电脑……都无需安装客户端，浏览器打开地址即可使用。</p>
+          </article>
+          <article class="card">
+            <div class="card__head">
+              <span class="card__icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M12 2c4.5 2.2 7.5 2.5 7.5 2.5V12c0 5-3.3 9.2-7.5 10-4.2-.8-7.5-5-7.5-10V4.5S7.5 4.2 12 2Z"
+                    stroke="currentColor" stroke-width="1.7" />
+                  <path d="M9.5 12l1.6 1.6L14.8 10" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"
+                    stroke-linejoin="round" />
+                </svg>
+              </span>
+              <h3>同一 Wi‑Fi 内，隐私可控</h3>
+            </div>
+            <p>文件共享发生在同一 Wi‑Fi/同一网络内。停止共享即停止服务，不依赖云端中转。</p>
+          </article>
+          <article class="card">
+            <div class="card__head">
+              <span class="card__icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M7 3h7l3 3v15a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" stroke="currentColor"
+                    stroke-width="1.7" />
+                  <path d="M14 3v4a2 2 0 0 0 2 2h4" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" />
+                  <path d="M8.5 14h7" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+                  <path d="M8.5 17h7" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+                </svg>
+              </span>
+              <h3>纯绿色，免安装</h3>
+            </div>
+            <p>下载后解压即可运行，无需安装器、无需系统服务；删除程序目录即可完成卸载。</p>
+          </article>
+          <article class="card">
+            <div class="card__head">
+              <span class="card__icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Z" stroke="currentColor" stroke-width="1.7" />
+                  <path d="M4.5 21a7.5 7.5 0 0 1 15 0" stroke="currentColor" stroke-width="1.7"
+                    stroke-linecap="round" />
+                  <path d="M18.5 3.5l2 2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+                  <path d="M20.5 3.5l-2 2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+                </svg>
+              </span>
+              <h3>无需管理员权限</h3>
+            </div>
+            <p>默认无需管理员权限即可运行。可选的 Windows 右键菜单也只写入当前用户范围（HKCU）。</p>
+          </article>
+          <article class="card">
+            <div class="card__head">
+              <span class="card__icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M4 7a3 3 0 0 1 3-3h10a3 3 0 0 1 3 3v10a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3V7Z"
+                    stroke="currentColor" stroke-width="1.7" />
+                  <path d="M8 10h8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+                  <path d="M8 14h6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+                </svg>
+              </span>
+              <h3>浏览器里管理文件</h3>
+            </div>
+            <p>目录浏览、上传、下载、预览（依赖浏览器支持的文件类型），在同一网络内即可完成。</p>
+          </article>
+          <article class="card">
+            <div class="card__head">
+              <span class="card__icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M4 4h6v6H4V4Zm10 0h6v6h-6V4ZM4 14h6v6H4v-6Zm10 3h3m3 0h-3m0 0v3m0-3v-3" stroke="currentColor"
+                    stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+              </span>
+              <h3>二维码快速打开</h3>
+            </div>
+            <p>电脑端生成二维码，手机一扫就能打开共享页面，减少手动输入地址的麻烦。</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section section--alt" id="compare">
+      <div class="container">
+        <h2>为什么“只需一台电脑运行”很重要？</h2>
+        <p class="sub">很多方案的问题不是功能不够，而是使用成本太高：装、配、折腾一圈，分享的兴致先被消耗掉。</p>
+
+        <div class="compare" aria-label="对比：传统做法 vs LocalShare">
+          <div class="compare__col compare__col--bad">
+            <div class="compare__title">传统做法 <span class="pill pill--bad">麻烦 / 挫败</span></div>
+            <ul class="compare__list">
+              <li>对方也要装客户端/插件：临时分享常被安装/权限卡住</li>
+              <li>临时分享要配置：步骤多、兼容性不确定</li>
+              <li>跨设备时更难：手机/Mac 往往“不想装、装不方便”</li>
+            </ul>
+          </div>
+          <div class="compare__col compare__col--good">
+            <div class="compare__title">LocalShare <span class="pill pill--good">省心 / 顺滑</span></div>
+            <ul class="compare__list">
+              <li>只需一台 Windows 电脑下载并运行</li>
+              <li>其他设备用浏览器打开地址即可</li>
+              <li>同一 Wi‑Fi 内共享：绿色免安装、无需管理员权限</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section section--alt" id="how">
+      <div class="container">
+        <h2>3 步开始共享</h2>
+        <ol class="steps">
+          <li>
+            <div class="steps__title">运行 LocalShare</div>
+            <div class="steps__body">下载并解压后双击运行（免安装）。</div>
+          </li>
+          <li>
+            <div class="steps__title">选择要共享的文件夹</div>
+            <div class="steps__body">点击“选择文件夹并开始共享”，或直接把文件夹拖到窗口。</div>
+          </li>
+          <li>
+            <div class="steps__title">其他设备用浏览器访问</div>
+            <div class="steps__body">同一 Wi‑Fi/同网段下，打开显示的 URL 或扫描二维码即可。</div>
+          </li>
+        </ol>
+
+        <div class="tips">
+          <div class="tips__title">打不开怎么办？</div>
+          <ul class="tips__list">
+            <li>确认设备在同一 Wi‑Fi（或同一路由器下的同一网络）。</li>
+            <li>检查 Windows 防火墙/安全软件是否拦截该程序的入站访问。</li>
+            <li>电脑有多张网卡时，可能会显示非目标网络的 IP，可尝试切换网络后重新开始共享。</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="faq">
+      <div class="container">
+        <h2>Q&A</h2>
+
+        <div class="faq">
+          <details open>
+            <summary>只需要在一台 Windows 电脑下载并运行吗？其他设备也要装吗？</summary>
+            <div class="faq__body">
+              是的。LocalShare 在 Windows 上启动共享服务；其他设备（手机、Mac 或其他电脑）无需安装客户端，只要在同一 Wi‑Fi/同一网络内用浏览器访问地址即可进行文件浏览、上传、下载和预览。
+            </div>
+          </details>
+
+          <details>
+            <summary>它是绿色软件吗？需要安装吗？</summary>
+            <div class="faq__body">
+              是纯绿色免安装：解压即用。删除程序文件夹即可卸载。
+              <p class="muted">唯一可能的系统改动来自“可选的 Windows 右键菜单”。不开启就不会写入注册表。</p>
+            </div>
+          </details>
+
+          <details>
+            <summary>需要管理员权限吗？</summary>
+            <div class="faq__body">
+              不需要。应用本身可直接运行；可选右键菜单写入的是当前用户注册表（HKCU），同样无需管理员权限。
+            </div>
+          </details>
+
+          <details>
+            <summary>我启用了右键菜单，后来直接删了应用，右键菜单还残留怎么办？</summary>
+            <div class="faq__body">
+              <p class="faq__hint muted">建议：删除应用前先检查一下——如果你曾启用过右键菜单，先在 LocalShare 界面里一键取消右键菜单，再删除应用会更省心。</p>
+              <p>右键菜单属于注册表项，删除程序文件并不会自动清理。可以按以下方式移除（仅影响当前用户）：</p>
+
+              <h4>方法 A：PowerShell 一键清理（推荐）</h4>
+              <pre><code id="cmdCleanup">reg.exe delete "HKCU\Software\Classes\Directory\shell\ShareFolder\command" /f
+reg.exe delete "HKCU\Software\Classes\Directory\shell\ShareFolder" /f
+reg.exe delete "HKCU\Software\Classes\Directory\Background\shell\ShareFolder\command" /f
+reg.exe delete "HKCU\Software\Classes\Directory\Background\shell\ShareFolder" /f
+
+# 让资源管理器刷新右键菜单（可选）
+Stop-Process -Name explorer -Force
+Start-Process explorer</code></pre>
+              <div class="row">
+                <button class="btn btn--soft" type="button" id="btnCopyCleanup">复制清理命令</button>
+              </div>
+
+              <h4>方法 B：手动清理（图形界面）</h4>
+              <ol>
+                <li>按 <kbd>Win</kbd> + <kbd>R</kbd>，输入 <code>regedit</code> 回车。</li>
+                <li>依次定位并删除以下键（如存在）：
+                  <ul>
+                    <li><code>HKEY_CURRENT_USER\Software\Classes\Directory\shell\ShareFolder</code></li>
+                    <li><code>HKEY_CURRENT_USER\Software\Classes\Directory\Background\shell\ShareFolder</code></li>
+                  </ul>
+                </li>
+                <li>重启资源管理器或注销/重启电脑，使右键菜单刷新。</li>
+              </ol>
+            </div>
+          </details>
+        </div>
+      </div>
+
+      <script type="application/ld+json" id="faqJsonLd"></script>
+    </section>
+
+    <section class="section section--cta">
+      <div class="container cta">
+        <div>
+          <h2>开始共享吧</h2>
+          <p class="sub">下载即用，其他设备打开浏览器即可。</p>
+        </div>
+        <div class="cta__actions">
+          <a class="btn btn--primary" href="https://github.com/xiaomingTang/local-share-golang/releases/latest"
+            target="_blank" rel="noopener">下载最新版（Windows）</a>
+          <a class="btn btn--ghost" href="https://github.com/xiaomingTang/local-share-golang" target="_blank"
+            rel="noopener">查看源码</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="container footer__inner">
+      <div class="footer__left">
+        <div class="footer__brand">LocalShare</div>
+        <div class="muted">© <span id="year"></span> · 纯绿色 Wi‑Fi 文件共享</div>
+      </div>
+      <div class="footer__right">
+        <a href="https://localsend.org/zh-CN" target="_blank" rel="noopener">致谢：信息架构参考 LocalSend</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="./main.js" defer></script>
+</body>
+
+</html>

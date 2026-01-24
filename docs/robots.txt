@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://xiaomingtang.github.io/local-share-golang/sitemap.xml
