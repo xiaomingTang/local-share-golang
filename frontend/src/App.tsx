@@ -32,7 +32,7 @@ import {
 import { cat } from "./error/catch-and-toast";
 import { toError } from "./error/utils";
 import { DropOverlay } from "./dragdrop/DropOverlay";
-import { Box, ButtonGroup, Stack, styled } from "@mui/material";
+import { Box, ButtonGroup, Stack, styled, Typography } from "@mui/material";
 
 const GITHUB_REPO_URL =
   "https://github.com/xiaomingTang/local-share-golang/releases";
@@ -294,6 +294,11 @@ export default function App() {
               >
                 {isCheckingUpdate ? "处理中..." : "检查更新"}
               </TextButton>
+            }
+            v={
+              <Typography color="action.disabled">
+                检查更新 不要太频繁，你会被 github 限流
+              </Typography>
             }
           />
         </div>
