@@ -32,7 +32,14 @@ import {
 import { cat } from "./error/catch-and-toast";
 import { toError } from "./error/utils";
 import { DropOverlay } from "./dragdrop/DropOverlay";
-import { Box, ButtonGroup, Stack, styled, Typography } from "@mui/material";
+import {
+  Box,
+  ButtonBase,
+  ButtonGroup,
+  Stack,
+  styled,
+  Typography,
+} from "@mui/material";
 
 const GITHUB_REPO_URL =
   "https://github.com/xiaomingTang/local-share-golang/releases";
@@ -132,7 +139,7 @@ function CopyableText(props: { text?: string }) {
 export default function App() {
   const [dropOverlayActive, setDropOverlayActive] = useState(false);
 
-  const ctxMenuExistsRes = useSWR("contextMenuExists", () =>
+  const ctxMenuExistsRes = useSWR("CheckContextMenuExists", () =>
     CheckContextMenuExists().then((res) => !!res?.exists),
   );
   const { data: ctxMenuExists, mutate: mutateCtxMenuExists } = ctxMenuExistsRes;
@@ -140,7 +147,7 @@ export default function App() {
   const [isCheckingUpdate, withCheckingUpdate] = useLoading();
 
   const { data: serverInfo, mutate: mutateServerInfo } = useSWR(
-    "serverInfo",
+    "GetServerInfo",
     () => GetServerInfo(),
   );
   const sharedFolder = serverInfo?.sharedFolder;
@@ -166,50 +173,49 @@ export default function App() {
 
   return (
     <>
-      <div className="max-w-215 mx-auto relative py-7 px-5">
-        <a
-          href="#"
+      <div className="max-w-215 mx-auto relative p-4">
+        <ButtonBase
           title="查看项目"
           aria-label="查看项目"
-          onClick={(e) => {
-            e.preventDefault();
+          sx={{ position: "absolute", right: 0, top: 0 }}
+          onClick={() => {
             openUrlInBrowser(GITHUB_REPO_URL);
           }}
         >
           <GithubCornerSvg
-            className="inline-block fill-white absolute top-0 right-0 border-0 text-[#1b2636]"
+            className="fill-white/75 text-[#1b2636]"
             aria-hidden="true"
           />
-        </a>
+        </ButtonBase>
 
-        <h1 className="mb-4 text-3xl tracking-[0.3px]">LocalShare</h1>
-
-        <div className="card">
-          <ButtonGroup>
-            <Button
-              color="primary"
-              variant="contained"
-              onClick={cat(async () => {
-                const dir = await PickFolder();
-                if (!dir) return;
-                await StartSharing(dir);
-                await mutateServerInfo();
-              })}
-            >
-              选择文件夹并开始共享
-            </Button>
-            <Button
-              color="warning"
-              variant="outlined"
-              disabled={!sharedFolder}
-              onClick={cat(async () => {
-                await StopSharing();
-                await mutateServerInfo();
-              })}
-            >
-              停止共享
-            </Button>
-          </ButtonGroup>
+        <div className="bg-white/5 rounded-xl border border-white/10 p-4">
+          <Box display="flex" justifyContent="center" alignItems="center">
+            <ButtonGroup>
+              <Button
+                color="primary"
+                variant="contained"
+                onClick={cat(async () => {
+                  const dir = await PickFolder();
+                  if (!dir) return;
+                  await StartSharing(dir);
+                  await mutateServerInfo();
+                })}
+              >
+                选择文件夹并开始共享
+              </Button>
+              <Button
+                color="warning"
+                variant="outlined"
+                disabled={!sharedFolder}
+                onClick={cat(async () => {
+                  await StopSharing();
+                  await mutateServerInfo();
+                })}
+              >
+                停止共享
+              </Button>
+            </ButtonGroup>
+          </Box>
 
           <div className="py-2 text-xs opacity-80 text-center">
             也可以把文件夹拖拽到窗口开始共享
@@ -265,7 +271,7 @@ export default function App() {
           </Stack>
         </div>
 
-        <div className="card">
+        <div className="bg-white/5 rounded-xl border border-white/10 p-4 mt-3">
           <Row
             k="右键菜单"
             v={
