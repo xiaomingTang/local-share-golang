@@ -1,19 +1,21 @@
-export function escapeHtml(text) {
-  const div = document.createElement("div");
-  div.textContent = text;
-  return div.innerHTML;
-}
-export function formatFileSize(bytes) {
-  if (bytes === 0) return "0 B";
+import type { DirectoryItem } from "../types";
+
+export function formatFileSize(bytes: number) {
+  if (!bytes) return "0 B";
   const k = 1024;
-  const sizes = ["B", "KB", "MB", "GB", "TB"];
+  const sizes = ["B", "KB", "MB", "GB", "TB"] as const;
   const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
 }
-export function canPreview(item) {
+
+export function isImageType(contentType: string) {
+  return (contentType || "").toLowerCase().startsWith("image/");
+}
+
+export function canPreview(item: DirectoryItem) {
   if (item.type === "directory") return false;
   const ext = item.extension || "";
-  const previewableExts = [
+  const previewableExts = new Set([
     ".ico",
     ".jpg",
     ".jpeg",
@@ -53,13 +55,14 @@ export function canPreview(item) {
     ".yaml",
     ".csv",
     ".log",
-  ];
-  return previewableExts.includes(ext) && item.size < 10 * 1024 * 1024;
+  ]);
+  return previewableExts.has(ext) && item.size < 10 * 1024 * 1024;
 }
-export function getFileIcon(item) {
+
+export function getFileIcon(item: DirectoryItem) {
   if (item.type === "directory") return "📁";
   const ext = item.extension || "";
-  const iconMap = {
+  const iconMap: Record<string, string> = {
     ".ico": "🖼️",
     ".jpg": "🖼️",
     ".jpeg": "🖼️",
@@ -121,59 +124,14 @@ export function getFileIcon(item) {
     ".ini": "⚙️",
     ".env": "⚙️",
   };
-  return iconMap[ext] || "📄";
+  return iconMap[ext] || (canPreview(item) ? "📄" : "❔");
 }
-export function getFileIconClass(item) {
-  if (item.type === "directory") return "folder";
-  const ext = item.extension || "";
-  if ([".ico", ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".svg"].includes(ext))
-    return "image";
-  if ([".mp4", ".avi", ".mkv", ".mov", ".wmv", ".flv"].includes(ext))
-    return "video";
-  if ([".mp3", ".wav", ".flac", ".aac", ".ogg"].includes(ext)) return "audio";
-  if (
-    [
-      ".pdf",
-      ".doc",
-      ".docx",
-      ".txt",
-      ".rtf",
-      ".xls",
-      ".xlsx",
-      ".ppt",
-      ".pptx",
-    ].includes(ext)
-  )
-    return "document";
-  if ([".zip", ".rar", ".7z", ".tar", ".gz"].includes(ext)) return "archive";
-  if (
-    [
-      ".js",
-      ".ts",
-      ".html",
-      ".css",
-      ".py",
-      ".java",
-      ".cpp",
-      ".hpp",
-      ".c",
-      ".h",
-      ".php",
-      ".rb",
-      ".go",
-      ".rs",
-      ".cs",
-      ".kt",
-      ".swift",
-      ".sh",
-      ".bat",
-      ".ps1",
-      ".sql",
-      ".toml",
-      ".ini",
-      ".env",
-    ].includes(ext)
-  )
-    return "code";
-  return "default";
+
+export function download(url: string, filename: string) {
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
 }

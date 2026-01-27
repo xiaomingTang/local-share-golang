@@ -1,10 +1,5 @@
 import "./app.css";
 
-import "@fontsource/roboto/300.css";
-import "@fontsource/roboto/400.css";
-import "@fontsource/roboto/500.css";
-import "@fontsource/roboto/700.css";
-
 import React from "react";
 import ReactDOM from "react-dom/client";
 
@@ -19,7 +14,6 @@ const theme = createTheme({
     mode: "dark",
     background: {
       default: "#1b2636",
-      paper: "rgba(255, 255, 255, 0.06)",
     },
   },
   typography: {

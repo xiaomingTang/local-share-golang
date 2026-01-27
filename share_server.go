@@ -25,7 +25,7 @@ import (
 	"time"
 )
 
-//go:embed all:web
+//go:embed all:web/dist
 var webAssets embed.FS
 
 type directoryItem struct {
@@ -222,7 +222,7 @@ func (s *ShareServer) stopLocked(ctx context.Context) error {
 }
 
 func (s *ShareServer) registerRoutes(mux *http.ServeMux) {
-	staticFS, err := fs.Sub(webAssets, "web")
+	staticFS, err := fs.Sub(webAssets, "web/dist")
 	if err != nil {
 		mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "static assets not available", http.StatusInternalServerError)
@@ -255,6 +255,20 @@ func (s *ShareServer) registerRoutes(mux *http.ServeMux) {
 				idx := path.Join(name, "index.html")
 				data, readErr = fs.ReadFile(staticFS, idx)
 				name = idx
+			}
+		}
+		if readErr != nil {
+			// SPA fallback: if a non-asset route is requested, serve index.html.
+			// Keep missing static assets as 404 (e.g. /assets/*.js).
+			base := path.Base(name)
+			isAsset := strings.Contains(base, ".")
+			if !isAsset {
+				idxData, idxErr := fs.ReadFile(staticFS, "index.html")
+				if idxErr == nil {
+					data = idxData
+					name = "index.html"
+					readErr = nil
+				}
 			}
 		}
 		if readErr != nil {
@@ -415,96 +429,191 @@ func (s *ShareServer) handleDownloadZip(w http.ResponseWriter, r *http.Request) 
 		paths = append(paths, p)
 	}
 	if len(paths) == 0 {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "未选择任何文件"})
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "未选择任何内容"})
 		return
 	}
+	if len(paths) > 200 {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "一次最多选择 200 个路径"})
+		return
+	}
+
+	// 单个文件：保持兼容，直接返回原文件（不打 zip）
 	if len(paths) == 1 {
-		// 单个文件：直接下载原文件，不打包 zip
 		fullPath, ok := safeJoin(root, paths[0])
 		if !ok {
-			writeJSON(w, http.StatusForbidden, map[string]string{"error": "无权限访问此文件"})
+			writeJSON(w, http.StatusForbidden, map[string]string{"error": "无权限访问此路径"})
 			return
 		}
 		st, err := os.Stat(fullPath)
 		if err != nil {
-			writeJSON(w, http.StatusNotFound, map[string]string{"error": "文件不存在"})
+			writeJSON(w, http.StatusNotFound, map[string]string{"error": "路径不存在"})
 			return
 		}
-		if st.IsDir() {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "无法下载文件夹"})
+		rootClean := filepath.Clean(root)
+		fullClean := filepath.Clean(fullPath)
+		isRoot := fullClean == rootClean
+		if runtime.GOOS == "windows" {
+			isRoot = strings.EqualFold(fullClean, rootClean)
+		}
+		if isRoot {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "禁止下载根目录"})
 			return
 		}
-		name := filepath.Base(fullPath)
-		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename*=UTF-8''%s", url.PathEscape(name)))
-		http.ServeFile(w, r, fullPath)
-		return
-	}
-	if len(paths) > 200 {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "一次最多下载 200 个文件"})
-		return
+
+		if !st.IsDir() {
+			name := filepath.Base(fullPath)
+			w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename*=UTF-8''%s", url.PathEscape(name)))
+			http.ServeFile(w, r, fullPath)
+			return
+		}
 	}
 
-	type fileToZip struct {
-		Rel  string
-		Full string
-		Name string
-		Size int64
+	const maxFilesInZip = 2000
+	const maxTotalSize int64 = 2 * 1024 * 1024 * 1024 // 2GB (uncompressed)
+
+	zipName := "shared-" + time.Now().Format("20060102-150405") + ".zip"
+	if len(paths) == 1 {
+		base := path.Base(path.Clean(filepath.ToSlash(paths[0])))
+		if base != "." && base != "" {
+			zipName = base + ".zip"
+		}
 	}
-	files := make([]fileToZip, 0, len(paths))
-	nameCount := map[string]int{}
+
+	w.Header().Set("Content-Type", "application/zip")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename*=UTF-8''%s", url.PathEscape(zipName)))
+	zw := zip.NewWriter(w)
+	defer func() { _ = zw.Close() }()
+
+	usedNames := map[string]int{}
+	filesAdded := 0
+	var totalSize int64
+
+	makeUnique := func(name string) string {
+		name = path.Clean(strings.TrimPrefix(name, "/"))
+		if name == "." || name == "" {
+			name = "file"
+		}
+		if c := usedNames[name]; c == 0 {
+			usedNames[name] = 1
+			return name
+		}
+		usedNames[name] = usedNames[name] + 1
+		c := usedNames[name] - 1
+
+		dir := path.Dir(name)
+		base := path.Base(name)
+		ext := path.Ext(base)
+		stem := strings.TrimSuffix(base, ext)
+		alt := stem + " (" + strconv.Itoa(c) + ")" + ext
+		if dir != "." {
+			return path.Join(dir, alt)
+		}
+		return alt
+	}
+
+	addFile := func(fullPath string, zipEntry string, modTime time.Time, size int64) error {
+		if filesAdded >= maxFilesInZip {
+			return errors.New("打包文件过多，请减少选择")
+		}
+		totalSize += size
+		if totalSize > maxTotalSize {
+			return errors.New("打包内容过大，请减少选择")
+		}
+
+		in, err := os.Open(fullPath)
+		if err != nil {
+			return err
+		}
+		defer in.Close()
+
+		h := &zip.FileHeader{Name: makeUnique(zipEntry), Method: zip.Deflate}
+		h.SetModTime(modTime)
+		wtr, err := zw.CreateHeader(h)
+		if err != nil {
+			return err
+		}
+		_, err = io.Copy(wtr, in)
+		if err != nil {
+			return err
+		}
+		filesAdded++
+		return nil
+	}
+
 	for _, rel := range paths {
 		full, ok := safeJoin(root, rel)
 		if !ok {
 			writeJSON(w, http.StatusForbidden, map[string]string{"error": "包含无权限访问的路径"})
 			return
 		}
-		st, err := os.Stat(full)
+		rootClean := filepath.Clean(root)
+		fullClean := filepath.Clean(full)
+		isRoot := fullClean == rootClean
+		if runtime.GOOS == "windows" {
+			isRoot = strings.EqualFold(fullClean, rootClean)
+		}
+		if isRoot {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "禁止下载根目录"})
+			return
+		}
+		st, err := os.Lstat(full)
 		if err != nil {
-			writeJSON(w, http.StatusNotFound, map[string]string{"error": "包含不存在的文件"})
+			writeJSON(w, http.StatusNotFound, map[string]string{"error": "包含不存在的路径"})
 			return
 		}
-		if st.IsDir() {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "暂不支持下载文件夹（请只选择文件）"})
+		if st.Mode()&os.ModeSymlink != 0 {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "不支持打包符号链接"})
 			return
 		}
 
-		base := filepath.Base(full)
-		finalName := base
-		if c := nameCount[base]; c > 0 {
-			ext := filepath.Ext(base)
-			stem := strings.TrimSuffix(base, ext)
-			finalName = stem + " (" + strconv.Itoa(c) + ")" + ext
+		cleanRel := path.Clean(filepath.ToSlash(rel))
+		cleanRel = strings.TrimPrefix(cleanRel, "/")
+
+		if !st.IsDir() {
+			if !st.Mode().IsRegular() {
+				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "只支持打包普通文件"})
+				return
+			}
+			if err := addFile(full, cleanRel, st.ModTime(), st.Size()); err != nil {
+				writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+				return
+			}
+			continue
 		}
-		nameCount[base] = nameCount[base] + 1
 
-		files = append(files, fileToZip{Rel: rel, Full: full, Name: finalName, Size: st.Size()})
-	}
-
-	zipName := "shared-" + time.Now().Format("20060102-150405") + ".zip"
-	w.Header().Set("Content-Type", "application/zip")
-	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename*=UTF-8''%s", url.PathEscape(zipName)))
-	zw := zip.NewWriter(w)
-	defer func() {
-		_ = zw.Close()
-	}()
-
-	for _, f := range files {
-		in, err := os.Open(f.Full)
-		if err != nil {
+		// 目录：递归打包，保留相对路径前缀
+		walkErr := filepath.WalkDir(full, func(p string, d fs.DirEntry, walkErr error) error {
+			if walkErr != nil {
+				return walkErr
+			}
+			// 跳过 symlink（避免穿透共享根目录）
+			if d.Type()&fs.ModeSymlink != 0 {
+				if d.IsDir() {
+					return filepath.SkipDir
+				}
+				return nil
+			}
+			if d.IsDir() {
+				return nil
+			}
+			info, err := d.Info()
+			if err != nil {
+				return nil
+			}
+			if !info.Mode().IsRegular() {
+				return nil
+			}
+			relInside, err := filepath.Rel(full, p)
+			if err != nil {
+				return nil
+			}
+			zipEntry := path.Join(cleanRel, filepath.ToSlash(relInside))
+			return addFile(p, zipEntry, info.ModTime(), info.Size())
+		})
+		if walkErr != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "打包失败"})
 			return
 		}
-		h := &zip.FileHeader{
-			Name:   f.Name,
-			Method: zip.Deflate,
-		}
-		h.SetModTime(time.Now())
-		wtr, err := zw.CreateHeader(h)
-		if err != nil {
-			_ = in.Close()
-			return
-		}
-		_, _ = io.Copy(wtr, in)
-		_ = in.Close()
 	}
 }
 
@@ -706,11 +815,11 @@ func (s *ShareServer) handleDelete(w http.ResponseWriter, r *http.Request) {
 		paths = append(paths, p)
 	}
 	if len(paths) == 0 {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "未选择任何文件"})
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "未选择任何内容"})
 		return
 	}
 	if len(paths) > 500 {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "一次最多删除 500 个文件"})
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "一次最多删除 500 个路径"})
 		return
 	}
 
@@ -722,13 +831,27 @@ func (s *ShareServer) handleDelete(w http.ResponseWriter, r *http.Request) {
 			errorsMap[rel] = "无权限"
 			continue
 		}
+		rootClean := filepath.Clean(root)
+		fullClean := filepath.Clean(full)
+		isRoot := fullClean == rootClean
+		if runtime.GOOS == "windows" {
+			isRoot = strings.EqualFold(fullClean, rootClean)
+		}
+		if isRoot {
+			errorsMap[rel] = "禁止删除根目录"
+			continue
+		}
 		st, err := os.Stat(full)
 		if err != nil {
 			errorsMap[rel] = "不存在"
 			continue
 		}
 		if st.IsDir() {
-			errorsMap[rel] = "不支持删除文件夹"
+			if err := os.RemoveAll(full); err != nil {
+				errorsMap[rel] = "删除失败"
+				continue
+			}
+			deleted++
 			continue
 		}
 		if err := os.Remove(full); err != nil {

@@ -1,0 +1,23 @@
+@import "tailwindcss";
+
+html {
+  height: 100%;
+  background-color: #1b2636;
+  color: white;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu",
+    "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
+}
+
+body {
+  background-color: #1b2636;
+  color: white;
+  overflow: auto;
+  scrollbar-gutter: stable;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}

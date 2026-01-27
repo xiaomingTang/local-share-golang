@@ -120,6 +120,84 @@ func TestShareServerDelete(t *testing.T) {
 	}
 }
 
+func TestShareServerDownloadZipDirectory(t *testing.T) {
+	tmp := t.TempDir()
+	_ = os.MkdirAll(filepath.Join(tmp, "dir"), 0o755)
+	_ = os.WriteFile(filepath.Join(tmp, "dir", "a.txt"), []byte("aaa"), 0o644)
+	_ = os.WriteFile(filepath.Join(tmp, "dir", "b.txt"), []byte("bbb"), 0o644)
+
+	s := NewShareServer()
+	s.sharedRoot = tmp
+
+	mux := http.NewServeMux()
+	s.registerRoutes(mux)
+	ts := httptest.NewServer(mux)
+	defer ts.Close()
+
+	body, _ := json.Marshal(map[string]any{
+		"paths": []string{"dir"},
+	})
+	resp, err := ts.Client().Post(ts.URL+"/api/download-zip", "application/json", bytes.NewReader(body))
+	if err != nil {
+		t.Fatalf("POST /api/download-zip failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected 200, got %d, body=%s", resp.StatusCode, string(b))
+	}
+
+	zipBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("read zip body failed: %v", err)
+	}
+	zr, err := zip.NewReader(bytes.NewReader(zipBytes), int64(len(zipBytes)))
+	if err != nil {
+		t.Fatalf("zip reader failed: %v", err)
+	}
+
+	got := map[string]bool{}
+	for _, f := range zr.File {
+		got[f.Name] = true
+	}
+	if !got["dir/a.txt"] || !got["dir/b.txt"] {
+		t.Fatalf("zip missing files: got=%v", got)
+	}
+}
+
+func TestShareServerDeleteDirectory(t *testing.T) {
+	tmp := t.TempDir()
+	_ = os.MkdirAll(filepath.Join(tmp, "dir"), 0o755)
+	_ = os.WriteFile(filepath.Join(tmp, "dir", "a.txt"), []byte("aaa"), 0o644)
+
+	s := NewShareServer()
+	s.sharedRoot = tmp
+
+	mux := http.NewServeMux()
+	s.registerRoutes(mux)
+	ts := httptest.NewServer(mux)
+	defer ts.Close()
+
+	body, _ := json.Marshal(map[string]any{
+		"paths": []string{"dir"},
+	})
+	resp, err := ts.Client().Post(ts.URL+"/api/delete", "application/json", bytes.NewReader(body))
+	if err != nil {
+		t.Fatalf("POST /api/delete failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected 200, got %d, body=%s", resp.StatusCode, string(b))
+	}
+
+	if _, err := os.Stat(filepath.Join(tmp, "dir")); !os.IsNotExist(err) {
+		t.Fatalf("expected dir to be deleted, stat err=%v", err)
+	}
+}
+
 func TestSafeJoinWindowsDriveRoot(t *testing.T) {
 	if runtime.GOOS != "windows" {
 		t.Skip("windows-only")
