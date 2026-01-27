@@ -1,6 +1,5 @@
 import toast from "react-hot-toast";
 import { BrowserOpenURL, ClipboardSetText } from "../wailsjs/runtime/runtime";
-import { useState } from "react";
 import {
   ApplyDownloadedUpdate,
   CheckForUpdate,

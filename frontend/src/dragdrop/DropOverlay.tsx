@@ -5,7 +5,7 @@ export function DropOverlay({ active }: { active: boolean }) {
     <div
       className={clsx(
         "fixed inset-0 z-9999 justify-center items-center flex flex-col",
-        "bg-black/35 backdrop-blur-sm pointer-events-none transition-all",
+        "bg-black/35 backdrop-blur-sm pointer-events-none select-none transition-opacity duration-300",
         active ? "opacity-100" : "opacity-0",
       )}
       aria-hidden={!active}

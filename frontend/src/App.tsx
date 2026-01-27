@@ -38,17 +38,24 @@ import {
   Box,
   ButtonBase,
   ButtonGroup,
-  Divider,
   Stack,
   styled,
-  SxProps,
-  Theme,
   Typography,
 } from "@mui/material";
 import clsx from "clsx";
+import { TypedStorage } from "./TypedStorage";
 
 const GITHUB_REPO_URL =
   "https://github.com/xiaomingTang/local-share-golang/releases";
+
+const UPDATE_CHECK_CLICK_KEY = "local-share:update-check-click";
+const UPDATE_CHECK_TIP_THRESHOLD = 10;
+
+const tipStorage = new TypedStorage<{
+  [UPDATE_CHECK_CLICK_KEY]: number[];
+}>({
+  ttl: 60 * 60 * 1000, // 1 hour
+});
 
 function ctxMenuExistsLabel(res: SWRResponse<boolean, unknown>) {
   if (res.error) return "检测失败（点击重试）";
@@ -98,6 +105,7 @@ function Row({ k, v, hidden }: RowProps) {
       sx={{
         opacity: hidden ? 0 : 1,
         pointerEvents: hidden ? "none" : "auto",
+        userSelect: hidden ? "none" : "auto",
         transition: "opacity 0.3s",
       }}
     >
@@ -159,6 +167,7 @@ function CopyableText(props: { text?: string }) {
 
 export default function App() {
   const [dropOverlayActive, setDropOverlayActive] = useState(false);
+  const [showRateTip, setShowRateTip] = useState(false);
 
   const ctxMenuExistsRes = useSWR("CheckContextMenuExists", () =>
     CheckContextMenuExists().then((res) => !!res?.exists),
@@ -314,8 +323,10 @@ export default function App() {
             )}
             <div
               className={clsx(
-                "text-xs select-none pointer-events-none transition-opacity duration-300",
-                serverUrl ? "opacity-80" : "opacity-0",
+                "text-xs transition-opacity duration-300",
+                serverUrl
+                  ? "opacity-80"
+                  : "opacity-0 select-none pointer-events-none",
               )}
             >
               手机和电脑需要在同一局域网
@@ -348,15 +359,25 @@ export default function App() {
               <TextButton
                 size="small"
                 disabled={isCheckingUpdate}
-                onClick={withCheckingUpdate(cat(async () => checkForUpdate()))}
+                onClick={withCheckingUpdate(
+                  cat(async () => {
+                    const list = tipStorage.get(UPDATE_CHECK_CLICK_KEY, []);
+                    list.push(Date.now());
+                    tipStorage.set(UPDATE_CHECK_CLICK_KEY, list);
+                    setShowRateTip(list.length >= UPDATE_CHECK_TIP_THRESHOLD);
+                    await checkForUpdate();
+                  }),
+                )}
               >
                 {isCheckingUpdate ? "处理中..." : "检查更新"}
               </TextButton>
             }
             v={
-              <Typography color="action.disabled">
-                检查更新 不要太频繁，你会被 github 限流
-              </Typography>
+              showRateTip && (
+                <Typography color="action.disabled">
+                  检查更新不要太频繁，你会被 github 限流的
+                </Typography>
+              )
             }
           />
         </div>
