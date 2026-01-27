@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import useSWR, { SWRResponse } from "swr";
+import { QRCodeCanvas } from "qrcode.react";
 
 import {
   CheckContextMenuExists,
@@ -20,6 +21,7 @@ import Button from "@mui/material/Button";
 import IconButton from "@mui/material/IconButton";
 
 import FolderIcon from "@mui/icons-material/Folder";
+import AdsClickIcon from "@mui/icons-material/AdsClick";
 import OpenInBrowserRoundedIcon from "@mui/icons-material/OpenInBrowserRounded";
 
 import GithubCornerSvg from "./assets/github-corner.svg?react";
@@ -36,10 +38,14 @@ import {
   Box,
   ButtonBase,
   ButtonGroup,
+  Divider,
   Stack,
   styled,
+  SxProps,
+  Theme,
   Typography,
 } from "@mui/material";
+import clsx from "clsx";
 
 const GITHUB_REPO_URL =
   "https://github.com/xiaomingTang/local-share-golang/releases";
@@ -77,9 +83,24 @@ async function sharingFromDroppedPaths(paths: string[]) {
   throw lastErr;
 }
 
-function Row(props: { k?: React.ReactNode; v?: React.ReactNode }) {
+interface RowProps {
+  k?: React.ReactNode;
+  v?: React.ReactNode;
+  hidden?: boolean;
+}
+
+function Row({ k, v, hidden }: RowProps) {
   return (
-    <Stack direction="row" spacing={2} alignItems="center">
+    <Stack
+      direction="row"
+      spacing={2}
+      alignItems="center"
+      sx={{
+        opacity: hidden ? 0 : 1,
+        pointerEvents: hidden ? "none" : "auto",
+        transition: "opacity 0.3s",
+      }}
+    >
       <Box
         sx={{
           minWidth: "110px",
@@ -89,7 +110,7 @@ function Row(props: { k?: React.ReactNode; v?: React.ReactNode }) {
           color: "#A9ADB3",
         }}
       >
-        {props.k}
+        {k}
       </Box>
       <Box
         sx={{
@@ -99,7 +120,7 @@ function Row(props: { k?: React.ReactNode; v?: React.ReactNode }) {
           alignItems: "center",
         }}
       >
-        {props.v}
+        {v}
       </Box>
     </Stack>
   );
@@ -153,6 +174,13 @@ export default function App() {
   const sharedFolder = serverInfo?.sharedFolder;
   const serverUrl = serverInfo?.url;
 
+  const tryToShare = cat(async () => {
+    const dir = await PickFolder();
+    if (!dir) return;
+    await StartSharing(dir);
+    await mutateServerInfo();
+  });
+
   useEffect(() => {
     const tryStartSharingFromDroppedPaths = cat(async (paths: string[]) => {
       await sharingFromDroppedPaths(paths);
@@ -191,17 +219,9 @@ export default function App() {
         <div className="bg-white/5 rounded-xl border border-white/10 p-4">
           <Box display="flex" justifyContent="center" alignItems="center">
             <ButtonGroup>
-              <Button
-                color="primary"
-                variant="contained"
-                onClick={cat(async () => {
-                  const dir = await PickFolder();
-                  if (!dir) return;
-                  await StartSharing(dir);
-                  await mutateServerInfo();
-                })}
-              >
-                选择文件夹并开始共享
+              <Button color="primary" variant="contained" onClick={tryToShare}>
+                {sharedFolder && "选择其他文件夹共享"}
+                {!sharedFolder && "选择文件夹开始共享"}
               </Button>
               <Button
                 color="warning"
@@ -223,6 +243,7 @@ export default function App() {
 
           <Row
             k="共享文件夹"
+            hidden={!serverUrl}
             v={
               <Stack direction="row" alignItems="center" spacing={1}>
                 <CopyableText text={sharedFolder} />
@@ -245,6 +266,7 @@ export default function App() {
 
           <Row
             k="访问地址"
+            hidden={!serverUrl}
             v={
               <Stack direction="row" alignItems="center" spacing={1}>
                 <CopyableText text={serverUrl} />
@@ -266,8 +288,38 @@ export default function App() {
             alignItems="center"
             className="mt-4"
           >
-            <img className="qr" alt="二维码" src={serverInfo?.qrCode} />
-            <div className="text-xs opacity-80">手机和电脑需要在同一局域网</div>
+            {serverUrl && (
+              <QRCodeCanvas
+                className="bg-[#F3F3F3] rounded-lg p-4"
+                bgColor="#F3F3F3"
+                value={serverUrl}
+                size={240}
+              />
+            )}
+            {!serverUrl && (
+              <ButtonBase
+                className="size-60"
+                sx={{
+                  gap: 1,
+                  borderRadius: 2,
+                  backgroundColor: "rgba(255, 255, 255, 0.1)",
+                  color: "rgba(255, 255, 255, 0.7)",
+                  fontWeight: "medium",
+                  flexDirection: "column",
+                }}
+                onClick={tryToShare}
+              >
+                <AdsClickIcon fontSize="large" />
+              </ButtonBase>
+            )}
+            <div
+              className={clsx(
+                "text-xs select-none pointer-events-none transition-opacity duration-300",
+                serverUrl ? "opacity-80" : "opacity-0",
+              )}
+            >
+              手机和电脑需要在同一局域网
+            </div>
           </Stack>
         </div>
 

@@ -13,18 +13,3 @@ body {
   margin: 0;
   padding: 0;
 }
-
-.qr {
-  position: relative;
-  width: 240px;
-  height: 240px;
-  background: #3e4855;
-  border-radius: 10px;
-}
-
-.qr:not([src])::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: #3e4855;
-}

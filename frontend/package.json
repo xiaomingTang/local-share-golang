@@ -21,6 +21,7 @@
     "@zimi/hooks": "^0.18.6",
     "clsx": "^2.1.1",
     "lodash-es": "^4.17.23",
+    "qrcode.react": "^4.2.0",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "react-hot-toast": "^2.6.0",

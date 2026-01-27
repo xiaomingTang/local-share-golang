@@ -38,7 +38,6 @@ export namespace main {
 	    url: string;
 	    port: number;
 	    localIP: string;
-	    qrCode: string;
 	    sharedFolder: string;
 	
 	    static createFrom(source: any = {}) {
@@ -50,7 +49,6 @@ export namespace main {
 	        this.url = source["url"];
 	        this.port = source["port"];
 	        this.localIP = source["localIP"];
-	        this.qrCode = source["qrCode"];
 	        this.sharedFolder = source["sharedFolder"];
 	    }
 	}

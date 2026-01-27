@@ -5,7 +5,6 @@ type ServerInfo struct {
 	URL          string `json:"url"`
 	Port         int    `json:"port"`
 	LocalIP      string `json:"localIP"`
-	QRCode       string `json:"qrCode"`
 	SharedFolder string `json:"sharedFolder"`
 }
 

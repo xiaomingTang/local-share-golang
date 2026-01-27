@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"context"
 	"embed"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -24,8 +23,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	qrcode "github.com/skip2/go-qrcode"
 )
 
 //go:embed all:web
@@ -53,7 +50,6 @@ type ShareServer struct {
 	sharedRoot string
 	localIP    string
 	port       int
-	qrCode     string
 
 	server   *http.Server
 	listener net.Listener
@@ -85,7 +81,6 @@ func (s *ShareServer) GetServerInfo() (*ServerInfo, error) {
 		URL:          fmt.Sprintf("http://%s:%d", s.localIP, s.port),
 		Port:         s.port,
 		LocalIP:      s.localIP,
-		QRCode:       s.qrCode,
 		SharedFolder: s.sharedRoot,
 	}, nil
 }
@@ -119,17 +114,10 @@ func (s *ShareServer) Start(ctx context.Context, folderPath string) (*ServerInfo
 		}
 
 		urlStr := fmt.Sprintf("http://%s:%d", s.localIP, s.port)
-		if s.localIP != "" && s.port > 0 {
-			if png, qrErr := qrcode.Encode(urlStr, qrcode.Medium, 256); qrErr == nil {
-				s.qrCode = "data:image/png;base64," + base64.StdEncoding.EncodeToString(png)
-			}
-		}
-
 		info := &ServerInfo{
 			URL:          urlStr,
 			Port:         s.port,
 			LocalIP:      s.localIP,
-			QRCode:       s.qrCode,
 			SharedFolder: s.sharedRoot,
 		}
 		s.mu.Unlock()
@@ -160,12 +148,6 @@ func (s *ShareServer) Start(ctx context.Context, folderPath string) (*ServerInfo
 	}
 
 	urlStr := fmt.Sprintf("http://%s:%d", ip, port)
-	png, err := qrcode.Encode(urlStr, qrcode.Medium, 256)
-	if err != nil {
-		_ = ln.Close()
-		return nil, err
-	}
-	qrData := "data:image/png;base64," + base64.StdEncoding.EncodeToString(png)
 
 	// Commit server state under lock (another goroutine might have started it).
 	s.mu.Lock()
@@ -177,16 +159,10 @@ func (s *ShareServer) Start(ctx context.Context, folderPath string) (*ServerInfo
 			s.localIP = ip2
 		}
 		urlStr2 := fmt.Sprintf("http://%s:%d", s.localIP, s.port)
-		if s.localIP != "" && s.port > 0 {
-			if png2, qrErr := qrcode.Encode(urlStr2, qrcode.Medium, 256); qrErr == nil {
-				s.qrCode = "data:image/png;base64," + base64.StdEncoding.EncodeToString(png2)
-			}
-		}
 		info := &ServerInfo{
 			URL:          urlStr2,
 			Port:         s.port,
 			LocalIP:      s.localIP,
-			QRCode:       s.qrCode,
 			SharedFolder: s.sharedRoot,
 		}
 		s.mu.Unlock()
@@ -199,13 +175,11 @@ func (s *ShareServer) Start(ctx context.Context, folderPath string) (*ServerInfo
 	s.port = port
 	s.listener = ln
 	s.server = srv
-	s.qrCode = qrData
 
 	info := &ServerInfo{
 		URL:          urlStr,
 		Port:         port,
 		LocalIP:      ip,
-		QRCode:       qrData,
 		SharedFolder: absRoot,
 	}
 	s.mu.Unlock()
@@ -242,7 +216,6 @@ func (s *ShareServer) stopLocked(ctx context.Context) error {
 	s.listener = nil
 	s.port = 0
 	s.localIP = ""
-	s.qrCode = ""
 	s.sharedRoot = ""
 
 	return err
