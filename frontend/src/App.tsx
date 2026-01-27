@@ -5,6 +5,7 @@ import { QRCodeCanvas } from "qrcode.react";
 import {
   CheckContextMenuExists,
   GetServerInfo,
+  GetVersion,
   PickFolder,
   SetContextMenuEnabled,
   StartSharing,
@@ -182,6 +183,8 @@ export default function App() {
   );
   const sharedFolder = serverInfo?.sharedFolder;
   const serverUrl = serverInfo?.url;
+
+  const { data: appVersion } = useSWR("GetVersion", () => GetVersion());
 
   const tryToShare = cat(async () => {
     const dir = await PickFolder();
@@ -373,11 +376,10 @@ export default function App() {
               </TextButton>
             }
             v={
-              showRateTip && (
-                <Typography color="action.disabled">
-                  检查更新不要太频繁，你会被 github 限流的
-                </Typography>
-              )
+              <Typography color="action.disabled">
+                {showRateTip && "检查更新不要太频繁，你会被 github 限流的"}
+                {!showRateTip && appVersion}
+              </Typography>
             }
           />
         </div>
