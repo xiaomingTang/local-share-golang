@@ -149,7 +149,8 @@ func (a *App) DownloadLatestUpdate() (*DownloadResult, error) {
 		return nil, err
 	}
 
-	backupExePath := filepath.Join(downloadsDir, backupExeNameForTarget(rel.TagName))
+	// Back up the currently running exe using the *current* version, not the target version.
+	backupExePath := filepath.Join(downloadsDir, backupExeNameForCurrentVersion())
 	appendLaunchLogf("update download ok latest=%q zip=%q extracted=%q backup=%q", rel.TagName, zipPath, extractedExePath, backupExePath)
 
 	a.pendingUpdateMu.Lock()
