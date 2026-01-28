@@ -10,10 +10,18 @@ export async function fetchFiles(path: string) {
 }
 
 export async function downloadZip(paths: string[]) {
+  return downloadZipWithIgnore({ paths, ignore: [] });
+}
+
+export async function downloadZipWithIgnore(opts: {
+  paths: string[];
+  ignore?: string[];
+}) {
+  const { paths, ignore } = opts;
   const resp = await fetch("/api/download-zip", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ paths }),
+    body: JSON.stringify({ paths, ignore: ignore || [] }),
   });
 
   const ct = (resp.headers.get("content-type") || "").toLowerCase();

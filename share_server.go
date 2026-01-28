@@ -388,7 +388,8 @@ func (s *ShareServer) handleDownload(w http.ResponseWriter, r *http.Request) {
 }
 
 type pathsRequest struct {
-	Paths []string `json:"paths"`
+	Paths  []string `json:"paths"`
+	Ignore []string `json:"ignore"`
 }
 
 func (s *ShareServer) handleDownloadZip(w http.ResponseWriter, r *http.Request) {
@@ -413,6 +414,74 @@ func (s *ShareServer) handleDownloadZip(w http.ResponseWriter, r *http.Request) 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "请求体解析失败"})
 		return
+	}
+
+	ignoreNames := make([]string, 0, len(req.Ignore))
+	ignorePrefixes := make([]string, 0, len(req.Ignore))
+	seenIgnore := make(map[string]struct{}, len(req.Ignore))
+	for _, ig := range req.Ignore {
+		ig = strings.TrimSpace(ig)
+		if ig == "" {
+			continue
+		}
+		// Normalize path ignores to forward slashes for zip entry comparison.
+		igNorm := filepath.ToSlash(ig)
+		igNorm = strings.TrimPrefix(igNorm, "/")
+		if _, ok := seenIgnore[igNorm]; ok {
+			continue
+		}
+		seenIgnore[igNorm] = struct{}{}
+		if strings.Contains(igNorm, "/") {
+			ignorePrefixes = append(ignorePrefixes, igNorm)
+		} else {
+			ignoreNames = append(ignoreNames, igNorm)
+		}
+	}
+
+	isIgnoredName := func(name string) bool {
+		if name == "" {
+			return false
+		}
+		for _, ig := range ignoreNames {
+			if runtime.GOOS == "windows" {
+				if strings.EqualFold(name, ig) {
+					return true
+				}
+				continue
+			}
+			if name == ig {
+				return true
+			}
+		}
+		return false
+	}
+
+	isIgnoredZipEntry := func(zipEntry string) bool {
+		if zipEntry == "" {
+			return false
+		}
+		zipEntry = path.Clean(filepath.ToSlash(zipEntry))
+		zipEntry = strings.TrimPrefix(zipEntry, "/")
+
+		// Quick segment name checks.
+		parts := strings.Split(zipEntry, "/")
+		for _, p := range parts {
+			if isIgnoredName(p) {
+				return true
+			}
+		}
+		// Prefix path ignores, e.g. "frontend/node_modules".
+		for _, pref := range ignorePrefixes {
+			p := path.Clean(pref)
+			p = strings.TrimPrefix(p, "/")
+			if p == "" || p == "." {
+				continue
+			}
+			if zipEntry == p || strings.HasPrefix(zipEntry, p+"/") {
+				return true
+			}
+		}
+		return false
 	}
 
 	paths := make([]string, 0, len(req.Paths))
@@ -534,6 +603,9 @@ func (s *ShareServer) handleDownloadZip(w http.ResponseWriter, r *http.Request) 
 
 		cleanRel := path.Clean(filepath.ToSlash(rel))
 		cleanRel = strings.TrimPrefix(cleanRel, "/")
+		if isIgnoredZipEntry(cleanRel) {
+			continue
+		}
 
 		if !st.IsDir() {
 			if !st.Mode().IsRegular() {
@@ -551,6 +623,12 @@ func (s *ShareServer) handleDownloadZip(w http.ResponseWriter, r *http.Request) 
 		walkErr := filepath.WalkDir(full, func(p string, d fs.DirEntry, walkErr error) error {
 			if walkErr != nil {
 				return walkErr
+			}
+			if isIgnoredName(d.Name()) {
+				if d.IsDir() {
+					return filepath.SkipDir
+				}
+				return nil
 			}
 			// 跳过 symlink（避免穿透共享根目录）
 			if d.Type()&fs.ModeSymlink != 0 {
@@ -574,6 +652,9 @@ func (s *ShareServer) handleDownloadZip(w http.ResponseWriter, r *http.Request) 
 				return nil
 			}
 			zipEntry := path.Join(cleanRel, filepath.ToSlash(relInside))
+			if isIgnoredZipEntry(zipEntry) {
+				return nil
+			}
 			return addCandidate(p, zipEntry, info.ModTime(), info.Size())
 		})
 		if walkErr != nil {
@@ -584,6 +665,11 @@ func (s *ShareServer) handleDownloadZip(w http.ResponseWriter, r *http.Request) 
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "打包失败"})
 			return
 		}
+	}
+
+	if len(candidates) == 0 {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "打包内容为空（已全部被忽略）"})
+		return
 	}
 
 	// Second pass: stream zip once we know we can fulfill the request.

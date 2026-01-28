@@ -1,4 +1,12 @@
-import { Button, Checkbox, Paper, Typography } from "@mui/material";
+import {
+  Button,
+  Checkbox,
+  IconButton,
+  Paper,
+  Tooltip,
+  Typography,
+} from "@mui/material";
+import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
 import clsx from "clsx";
 
 export type SelectionBarProps = {
@@ -7,6 +15,7 @@ export type SelectionBarProps = {
   selectedTotal: number;
   onSelectAll: (checked: boolean) => void;
   onDownloadSelected: () => void;
+  onOpenDownloadSettings: () => void;
   onDeleteSelected: () => void;
   onClearSelection: () => void;
 };
@@ -18,6 +27,7 @@ export function SelectionBar(props: SelectionBarProps) {
     selectedTotal,
     onSelectAll,
     onDownloadSelected,
+    onOpenDownloadSettings,
     onDeleteSelected,
     onClearSelection,
   } = props;
@@ -56,6 +66,13 @@ export function SelectionBar(props: SelectionBarProps) {
           <Typography variant="body2">已选 {selectedTotal} 项</Typography>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <Tooltip title="下载设置">
+            <span>
+              <IconButton size="small" onClick={onOpenDownloadSettings}>
+                <SettingsOutlinedIcon fontSize="small" />
+              </IconButton>
+            </span>
+          </Tooltip>
           <Button
             variant="contained"
             size="small"

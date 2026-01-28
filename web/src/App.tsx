@@ -3,27 +3,57 @@ import { Paper } from "@mui/material";
 import toast from "react-hot-toast";
 import { download } from "./utils/fileUtils";
 import { buildCrumbs } from "./utils/path";
-import { deletePaths, downloadZip, uploadFilesWithProgress } from "./utils/api";
+import {
+  deletePaths,
+  downloadZipWithIgnore,
+  uploadFilesWithProgress,
+} from "./utils/api";
 import { toError } from "./error/utils";
 import { BreadcrumbNav } from "./components/BreadcrumbNav";
 import { DirectoryList } from "./components/DirectoryList";
 import { PreviewDialog } from "./components/PreviewDialog";
 import { SelectionBar } from "./components/SelectionBar";
 import { UploadPanel } from "./components/UploadPanel";
+import {
+  buildIgnoreList,
+  DEFAULT_IGNORE_PRESETS,
+  DownloadZipSettingsDialog,
+  type DownloadZipSettingsValue,
+} from "./components/DownloadZipSettingsDialog";
 import { useDirectoryListing } from "./hooks/useDirectoryListing";
 import { useFilePreview } from "./hooks/useFilePreview";
 import { useSelection } from "./hooks/useSelection";
 import { useSseDirsRefresh } from "./hooks/useSseDirsRefresh";
 import { useSyncedPath } from "./hooks/useSyncedPath";
+import { TypedStorage, useStorage } from "./TypedStorage";
 
 function buildFilePath(currentPath: string, fileName: string) {
   return currentPath ? `${currentPath}/${fileName}` : fileName;
 }
 
+const DOWNLOAD_SETTINGS_KEY = "localshare.web.downloadZipSettings.v1" as const;
+type WebStorageSchema = {
+  [DOWNLOAD_SETTINGS_KEY]: DownloadZipSettingsValue;
+};
+const storage = new TypedStorage<WebStorageSchema>();
+
+const defaultDownloadSettings: DownloadZipSettingsValue = {
+  enabledPresetKeys: DEFAULT_IGNORE_PRESETS.map((p) => p.key),
+  customIgnore: "",
+};
+
 export default function App() {
   const { currentPath, setPath } = useSyncedPath();
   const [uploadPct, setUploadPct] = useState<number>(0);
   const [uploading, setUploading] = useState<boolean>(false);
+
+  const [downloadSettingsOpen, setDownloadSettingsOpen] = useState(false);
+  const [downloadSettings, setDownloadSettings] = useStorage(
+    storage,
+    DOWNLOAD_SETTINGS_KEY,
+    defaultDownloadSettings,
+  );
+
   const {
     rootName,
     items,
@@ -92,7 +122,8 @@ export default function App() {
 
     const t = toast.loading("打包中...");
     try {
-      const { blob, fileName } = await downloadZip(paths);
+      const ignore = buildIgnoreList(downloadSettings);
+      const { blob, fileName } = await downloadZipWithIgnore({ paths, ignore });
       const url = URL.createObjectURL(blob);
       download(url, fileName);
       window.setTimeout(() => URL.revokeObjectURL(url), 5000);
@@ -184,8 +215,16 @@ export default function App() {
         selectedTotal={selected.size}
         onSelectAll={onSelectAll}
         onDownloadSelected={() => void downloadSelected()}
+        onOpenDownloadSettings={() => setDownloadSettingsOpen(true)}
         onDeleteSelected={() => void deleteSelected()}
         onClearSelection={clearSelection}
+      />
+
+      <DownloadZipSettingsDialog
+        open={downloadSettingsOpen}
+        value={downloadSettings}
+        onChange={(next) => setDownloadSettings(next)}
+        onClose={() => setDownloadSettingsOpen(false)}
       />
 
       <Paper
