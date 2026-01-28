@@ -58,7 +58,7 @@ export const PreviewDialog = NiceModal.create((props: PreviewDialogProps) => {
         },
       }}
     >
-      <DialogTitle>{title}</DialogTitle>
+      <DialogTitle sx={{ wordBreak: "break-all" }}>{title}</DialogTitle>
       <DialogContent dividers>
         {previewIsValidating && (
           <div className="py-10">

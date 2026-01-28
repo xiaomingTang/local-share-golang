@@ -34,7 +34,7 @@ export function DirectoryList(props: DirectoryListProps) {
 
   return (
     <div className="divide-y divide-white/10">
-      <div className="px-4 py-6 text-sm opacity-80">
+      <div className="p-2 md:p-4 text-sm opacity-80">
         {loadingText ?? null}
         {errorText ?? null}
         {!loadingText && !errorText && items.length === 0 && emptyText}
@@ -50,7 +50,7 @@ export function DirectoryList(props: DirectoryListProps) {
             <div
               key={`${it.type}:${it.name}`}
               className={clsx(
-                "flex items-center gap-3 px-4 py-3 ",
+                "flex items-center gap-2 md:gap-3 px-2 md:px-4 py-1.5 md:py-3 ",
                 isSelected ? " bg-blue-500/10" : "",
               )}
               onDoubleClick={() => {
@@ -65,7 +65,7 @@ export function DirectoryList(props: DirectoryListProps) {
                   size="small"
                 />
               </div>
-              <div className="w-10 select-none text-xl">{getFileIcon(it)}</div>
+              <div className="w-6 select-none text-xl">{getFileIcon(it)}</div>
               <div
                 className={clsx(
                   "min-w-0 flex-1",
