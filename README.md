@@ -52,7 +52,7 @@
 
 ## 常见问题
 
-### 1) 只需要在一台 Windows 电脑下载并运行吗？其他设备也要装吗？
+### 1) 只需要在一台 Windows 电脑下载并运行吗？其他设备要装吗？
 
 LocalShare 在 Windows 上启动共享服务；**其他设备**（手机、Mac 或其他电脑）**无需**安装客户端，只要在同一 Wi‑Fi/同一网络内用浏览器访问地址即可进行文件浏览、上传、下载和预览。
 
@@ -88,25 +88,29 @@ LocalShare 在 Windows 上启动共享服务；**其他设备**（手机、Mac �
 
 方法 A：PowerShell 一键清理（推荐）
 
-```powershell
-reg.exe delete "HKCU\Software\Classes\Directory\shell\ShareFolder\command" /f
-reg.exe delete "HKCU\Software\Classes\Directory\shell\ShareFolder" /f
-reg.exe delete "HKCU\Software\Classes\Directory\Background\shell\ShareFolder\command" /f
-reg.exe delete "HKCU\Software\Classes\Directory\Background\shell\ShareFolder" /f
+    ```powershell
+    reg.exe delete "HKCU\Software\Classes\Directory\shell\ShareFolder\command" /f
+    reg.exe delete "HKCU\Software\Classes\Directory\shell\ShareFolder" /f
+    reg.exe delete "HKCU\Software\Classes\Directory\Background\shell\ShareFolder\command" /f
+    reg.exe delete "HKCU\Software\Classes\Directory\Background\shell\ShareFolder" /f
 
-# 让资源管理器刷新右键菜单（可选）
-Stop-Process -Name explorer -Force
-Start-Process explorer
-```
+    # 让资源管理器刷新右键菜单（可选）
+    Stop-Process -Name explorer -Force
+    Start-Process explorer
+    ```
 
-方法 B：手动清理（图形界面）
+方法 B：重新下载应用并一键移除（最省心）
+
+1. 重新下载/解压 LocalShare，并运行。
+2. 在左下角一键移除右键菜单（只会移除 LocalShare 自己添加的“共享此文件夹”，不会移除你正常的右键菜单的）。
+3. 搞定收工，如果应用不需要了，就可以放心删除整个程序文件夹了。
+
+方法 C：手动清理（注册表图形界面）
 
 1. 按 Win + R，输入 `regedit` 回车。
 2. 依次定位并删除以下键（如存在）：
-
-- `HKEY_CURRENT_USER\Software\Classes\Directory\shell\ShareFolder`
-- `HKEY_CURRENT_USER\Software\Classes\Directory\Background\shell\ShareFolder`
-
+   - `HKEY_CURRENT_USER\Software\Classes\Directory\shell\ShareFolder`
+   - `HKEY_CURRENT_USER\Software\Classes\Directory\Background\shell\ShareFolder`
 3. 重启资源管理器或注销/重启电脑，使右键菜单刷新。
 
 ## 开发与构建（开发者）
