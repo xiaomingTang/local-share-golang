@@ -11,7 +11,10 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "postinstall": "node ../scripts/ensure-common-node-modules.mjs"
+    "postinstall": "node ../scripts/ensure-common-node-modules.mjs",
+    "predev": "npm run postinstall",
+    "prebuild": "npm run postinstall",
+    "prepreview": "npm run postinstall"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
