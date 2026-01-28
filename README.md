@@ -10,6 +10,7 @@
   ![客户端预览](./docs/assets/preview.png)
 - 网页文件管理页面
   ![网页文件管理页面预览](./docs/assets/preview-web.png)
+  ![网页文件管理页面预览](./docs/assets/preview-web-2.png)
 
 ## 主要功能
 
