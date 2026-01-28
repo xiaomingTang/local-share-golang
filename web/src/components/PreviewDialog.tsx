@@ -53,8 +53,7 @@ export const PreviewDialog = NiceModal.create((props: PreviewDialogProps) => {
       slotProps={{
         paper: {
           sx: {
-            backgroundColor: "rgba(17, 17, 17, 0.8)",
-            backdropFilter: "blur(10px)",
+            backgroundColor: "#01132d",
           },
         },
       }}
@@ -75,8 +74,8 @@ export const PreviewDialog = NiceModal.create((props: PreviewDialogProps) => {
         )}
         {!previewIsValidating && !imageUrl && (
           <textarea
-            disabled
             readOnly
+            autoFocus
             className="h-[60vh] block w-full overflow-auto whitespace-pre rounded-lg bg-black/30 p-4 text-sm font-mono leading-normal outline-0 resize-none"
             style={{
               tabSize: 2,
