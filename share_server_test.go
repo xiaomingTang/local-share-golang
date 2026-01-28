@@ -83,6 +83,45 @@ func TestShareServerDownloadZip(t *testing.T) {
 	}
 }
 
+func TestShareServerDownloadZipMissingPathReturnsJSONError(t *testing.T) {
+	tmp := t.TempDir()
+	_ = os.WriteFile(filepath.Join(tmp, "a.txt"), []byte("aaa"), 0o644)
+
+	s := NewShareServer()
+	s.sharedRoot = tmp
+
+	mux := http.NewServeMux()
+	s.registerRoutes(mux)
+	ts := httptest.NewServer(mux)
+	defer ts.Close()
+
+	body, _ := json.Marshal(map[string]any{
+		"paths": []string{"a.txt", "missing.txt"},
+	})
+	resp, err := ts.Client().Post(ts.URL+"/api/download-zip", "application/json", bytes.NewReader(body))
+	if err != nil {
+		t.Fatalf("POST /api/download-zip failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusOK {
+		b, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected non-200, got %d, body=%s", resp.StatusCode, string(b))
+	}
+
+	ct := strings.ToLower(resp.Header.Get("Content-Type"))
+	if !strings.Contains(ct, "application/json") {
+		b, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected json error response, ct=%q body=%q", ct, string(b))
+	}
+
+	var payload map[string]any
+	_ = json.NewDecoder(resp.Body).Decode(&payload)
+	if payload["error"] == nil {
+		t.Fatalf("expected error field, payload=%v", payload)
+	}
+}
+
 func TestShareServerDelete(t *testing.T) {
 	tmp := t.TempDir()
 	pa := filepath.Join(tmp, "a.txt")

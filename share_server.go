@@ -470,6 +470,33 @@ func (s *ShareServer) handleDownloadZip(w http.ResponseWriter, r *http.Request) 
 
 	const maxFilesInZip = 2000
 	const maxTotalSize int64 = 2 * 1024 * 1024 * 1024 // 2GB (uncompressed)
+	errTooManyFiles := errors.New("打包文件过多，请减少选择")
+	errTooLarge := errors.New("打包内容过大，请减少选择")
+
+	type zipCandidate struct {
+		fullPath string
+		zipEntry string
+		modTime  time.Time
+		size     int64
+	}
+
+	// First pass: validate all selected paths and collect files to be zipped.
+	// This ensures we can return a proper JSON error response without corrupting a partially-written zip.
+	candidates := make([]zipCandidate, 0, len(paths))
+	filesAdded := 0
+	var totalSize int64
+	addCandidate := func(fullPath string, zipEntry string, modTime time.Time, size int64) error {
+		if filesAdded >= maxFilesInZip {
+			return errTooManyFiles
+		}
+		totalSize += size
+		if totalSize > maxTotalSize {
+			return errTooLarge
+		}
+		candidates = append(candidates, zipCandidate{fullPath: fullPath, zipEntry: zipEntry, modTime: modTime, size: size})
+		filesAdded++
+		return nil
+	}
 
 	zipName := "shared-" + time.Now().Format("20060102-150405") + ".zip"
 	if len(paths) == 1 {
@@ -477,67 +504,6 @@ func (s *ShareServer) handleDownloadZip(w http.ResponseWriter, r *http.Request) 
 		if base != "." && base != "" {
 			zipName = base + ".zip"
 		}
-	}
-
-	w.Header().Set("Content-Type", "application/zip")
-	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename*=UTF-8''%s", url.PathEscape(zipName)))
-	zw := zip.NewWriter(w)
-	defer func() { _ = zw.Close() }()
-
-	usedNames := map[string]int{}
-	filesAdded := 0
-	var totalSize int64
-
-	makeUnique := func(name string) string {
-		name = path.Clean(strings.TrimPrefix(name, "/"))
-		if name == "." || name == "" {
-			name = "file"
-		}
-		if c := usedNames[name]; c == 0 {
-			usedNames[name] = 1
-			return name
-		}
-		usedNames[name] = usedNames[name] + 1
-		c := usedNames[name] - 1
-
-		dir := path.Dir(name)
-		base := path.Base(name)
-		ext := path.Ext(base)
-		stem := strings.TrimSuffix(base, ext)
-		alt := stem + " (" + strconv.Itoa(c) + ")" + ext
-		if dir != "." {
-			return path.Join(dir, alt)
-		}
-		return alt
-	}
-
-	addFile := func(fullPath string, zipEntry string, modTime time.Time, size int64) error {
-		if filesAdded >= maxFilesInZip {
-			return errors.New("打包文件过多，请减少选择")
-		}
-		totalSize += size
-		if totalSize > maxTotalSize {
-			return errors.New("打包内容过大，请减少选择")
-		}
-
-		in, err := os.Open(fullPath)
-		if err != nil {
-			return err
-		}
-		defer in.Close()
-
-		h := &zip.FileHeader{Name: makeUnique(zipEntry), Method: zip.Deflate}
-		h.SetModTime(modTime)
-		wtr, err := zw.CreateHeader(h)
-		if err != nil {
-			return err
-		}
-		_, err = io.Copy(wtr, in)
-		if err != nil {
-			return err
-		}
-		filesAdded++
-		return nil
 	}
 
 	for _, rel := range paths {
@@ -574,7 +540,7 @@ func (s *ShareServer) handleDownloadZip(w http.ResponseWriter, r *http.Request) 
 				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "只支持打包普通文件"})
 				return
 			}
-			if err := addFile(full, cleanRel, st.ModTime(), st.Size()); err != nil {
+			if err := addCandidate(full, cleanRel, st.ModTime(), st.Size()); err != nil {
 				writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 				return
 			}
@@ -608,10 +574,71 @@ func (s *ShareServer) handleDownloadZip(w http.ResponseWriter, r *http.Request) 
 				return nil
 			}
 			zipEntry := path.Join(cleanRel, filepath.ToSlash(relInside))
-			return addFile(p, zipEntry, info.ModTime(), info.Size())
+			return addCandidate(p, zipEntry, info.ModTime(), info.Size())
 		})
 		if walkErr != nil {
+			if errors.Is(walkErr, errTooManyFiles) || errors.Is(walkErr, errTooLarge) {
+				writeJSON(w, http.StatusBadRequest, map[string]string{"error": walkErr.Error()})
+				return
+			}
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "打包失败"})
+			return
+		}
+	}
+
+	// Second pass: stream zip once we know we can fulfill the request.
+	w.Header().Set("Content-Type", "application/zip")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename*=UTF-8''%s", url.PathEscape(zipName)))
+	zw := zip.NewWriter(w)
+	defer func() { _ = zw.Close() }()
+
+	usedNames := map[string]int{}
+	makeUnique := func(name string) string {
+		name = path.Clean(strings.TrimPrefix(name, "/"))
+		if name == "." || name == "" {
+			name = "file"
+		}
+		if c := usedNames[name]; c == 0 {
+			usedNames[name] = 1
+			return name
+		}
+		usedNames[name] = usedNames[name] + 1
+		c := usedNames[name] - 1
+
+		dir := path.Dir(name)
+		base := path.Base(name)
+		ext := path.Ext(base)
+		stem := strings.TrimSuffix(base, ext)
+		alt := stem + " (" + strconv.Itoa(c) + ")" + ext
+		if dir != "." {
+			return path.Join(dir, alt)
+		}
+		return alt
+	}
+
+	addFile := func(fullPath string, zipEntry string, modTime time.Time) error {
+		in, err := os.Open(fullPath)
+		if err != nil {
+			return err
+		}
+		defer in.Close()
+
+		h := &zip.FileHeader{Name: makeUnique(zipEntry), Method: zip.Deflate}
+		h.SetModTime(modTime)
+		wtr, err := zw.CreateHeader(h)
+		if err != nil {
+			return err
+		}
+		_, err = io.Copy(wtr, in)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+
+	for _, c := range candidates {
+		if err := addFile(c.fullPath, c.zipEntry, c.modTime); err != nil {
+			// Response has already started (zip stream). We can't safely switch to JSON.
 			return
 		}
 	}
