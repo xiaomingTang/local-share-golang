@@ -114,10 +114,12 @@ export const DownloadZipSettingsDialog = NiceModal.create(
           <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
             常见忽略项
           </Typography>
-          <FormGroup sx={{ mb: 2 }}>
+          <FormGroup sx={{ mb: 2, alignItems: "flex-start" }}>
             {DEFAULT_IGNORE_PRESETS.map((p) => (
               <FormControlLabel
                 key={p.key}
+                label={p.label}
+                sx={{ mr: 0, pr: 2 }}
                 control={
                   <Checkbox
                     size="small"
@@ -125,7 +127,6 @@ export const DownloadZipSettingsDialog = NiceModal.create(
                     onChange={(e) => togglePreset(p.key, e.target.checked)}
                   />
                 }
-                label={p.label}
               />
             ))}
           </FormGroup>
