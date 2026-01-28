@@ -12,7 +12,7 @@ html {
 body {
   background-color: #1b2636;
   color: white;
-  overflow: auto;
+  overflow: scroll;
   scrollbar-gutter: stable;
 }
 
