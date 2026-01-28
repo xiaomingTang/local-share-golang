@@ -75,11 +75,22 @@ func samePath(a, b string) bool {
 
 type sseHub struct {
 	mu      sync.Mutex
-	clients map[chan []byte]struct{}
+	clients map[*sseClient]struct{}
+}
+
+type sseClient struct {
+	ch        chan []byte
+	closeOnce sync.Once
+}
+
+func (c *sseClient) close() {
+	c.closeOnce.Do(func() {
+		close(c.ch)
+	})
 }
 
 func newSSEHub() *sseHub {
-	return &sseHub{clients: make(map[chan []byte]struct{})}
+	return &sseHub{clients: make(map[*sseClient]struct{})}
 }
 
 func (h *sseHub) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -93,9 +104,9 @@ func (h *sseHub) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-cache, no-transform")
 	w.Header().Set("Connection", "keep-alive")
 
-	ch := make(chan []byte, 16)
-	h.addClient(ch)
-	defer h.removeClient(ch)
+	client := &sseClient{ch: make(chan []byte, 16)}
+	h.addClient(client)
+	defer h.removeClient(client)
 
 	// Initial flush so the client considers the connection established.
 	_, _ = io.WriteString(w, ": connected\n\n")
@@ -111,7 +122,10 @@ func (h *sseHub) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		case <-keepAlive.C:
 			_, _ = io.WriteString(w, ": ping\n\n")
 			flusher.Flush()
-		case msg := <-ch:
+		case msg, ok := <-client.ch:
+			if !ok {
+				return
+			}
 			if len(msg) == 0 {
 				continue
 			}
@@ -121,17 +135,26 @@ func (h *sseHub) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *sseHub) addClient(ch chan []byte) {
+func (h *sseHub) addClient(c *sseClient) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	h.clients[ch] = struct{}{}
+	h.clients[c] = struct{}{}
 }
 
-func (h *sseHub) removeClient(ch chan []byte) {
+func (h *sseHub) removeClient(c *sseClient) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	delete(h.clients, ch)
-	close(ch)
+	delete(h.clients, c)
+	c.close()
+}
+
+func (h *sseHub) CloseAll() {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	for c := range h.clients {
+		c.close()
+		delete(h.clients, c)
+	}
 }
 
 func (h *sseHub) broadcast(event string, payload any) {
@@ -143,15 +166,15 @@ func (h *sseHub) broadcast(event string, payload any) {
 
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	for ch := range h.clients {
+	for c := range h.clients {
 		// Don't let slow clients block the broadcaster.
 		select {
-		case ch <- msg:
+		case c.ch <- msg:
 		default:
 			// Drop backlog and keep the latest.
 			for {
 				select {
-				case <-ch:
+				case <-c.ch:
 				default:
 					goto sendLatest
 				}
@@ -159,7 +182,7 @@ func (h *sseHub) broadcast(event string, payload any) {
 		}
 	sendLatest:
 		select {
-		case ch <- msg:
+		case c.ch <- msg:
 		default:
 			// still full; give up
 		}

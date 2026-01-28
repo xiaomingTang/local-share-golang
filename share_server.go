@@ -204,13 +204,26 @@ func (s *ShareServer) stopLocked(ctx context.Context) error {
 		return nil
 	}
 
+	// Proactively close SSE clients so long-lived event streams don't block shutdown.
+	if s.events != nil {
+		s.events.CloseAll()
+	}
+
 	// Stop directory watcher before tearing down state.
 	s.stopWatcher()
 
-	shutdownCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	// Use a dedicated timeout context here: the app-level ctx may be canceled or
+	// too short-lived for a graceful shutdown.
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
 	defer cancel()
 
 	err := s.server.Shutdown(shutdownCtx)
+	if errors.Is(err, context.DeadlineExceeded) {
+		// Graceful shutdown timed out (likely due to in-flight downloads/uploads).
+		// Force-close to avoid surfacing a noisy error to the user.
+		_ = s.server.Close()
+		err = nil
+	}
 	_ = s.listener.Close()
 
 	s.server = nil
