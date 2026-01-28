@@ -25,7 +25,7 @@ import (
 	"time"
 )
 
-//go:embed all:web
+//go:embed all:web/dist
 var webAssets embed.FS
 
 type directoryItem struct {
@@ -45,7 +45,8 @@ type filesResponse struct {
 }
 
 type ShareServer struct {
-	mu sync.RWMutex
+	mu       sync.RWMutex
+	settings *SettingsStore
 
 	sharedRoot string
 	localIP    string
@@ -62,7 +63,7 @@ type ShareServer struct {
 }
 
 func NewShareServer() *ShareServer {
-	return &ShareServer{events: newSSEHub()}
+	return &ShareServer{events: newSSEHub(), settings: NewSettingsStore()}
 }
 
 func (s *ShareServer) IsRunning() bool {
@@ -222,7 +223,7 @@ func (s *ShareServer) stopLocked(ctx context.Context) error {
 }
 
 func (s *ShareServer) registerRoutes(mux *http.ServeMux) {
-	staticFS, err := fs.Sub(webAssets, "web")
+	staticFS, err := fs.Sub(webAssets, "web/dist")
 	if err != nil {
 		mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "static assets not available", http.StatusInternalServerError)
@@ -258,6 +259,20 @@ func (s *ShareServer) registerRoutes(mux *http.ServeMux) {
 			}
 		}
 		if readErr != nil {
+			// SPA fallback: if a non-asset route is requested, serve index.html.
+			// Keep missing static assets as 404 (e.g. /assets/*.js).
+			base := path.Base(name)
+			isAsset := strings.Contains(base, ".")
+			if !isAsset {
+				idxData, idxErr := fs.ReadFile(staticFS, "index.html")
+				if idxErr == nil {
+					data = idxData
+					name = "index.html"
+					readErr = nil
+				}
+			}
+		}
+		if readErr != nil {
 			http.NotFound(w, r)
 			return
 		}
@@ -267,6 +282,8 @@ func (s *ShareServer) registerRoutes(mux *http.ServeMux) {
 
 	mux.HandleFunc("/api/files", s.handleFiles)
 	mux.HandleFunc("/api/events", s.handleEvents)
+	mux.HandleFunc("/api/settings/", s.handleSettings)
+	mux.HandleFunc("/api/settings", s.handleSettings)
 	mux.HandleFunc("/api/download", s.handleDownload)
 	mux.HandleFunc("/api/download-zip", s.handleDownloadZip)
 	mux.HandleFunc("/api/preview", s.handlePreview)
@@ -280,6 +297,89 @@ func (s *ShareServer) handleEvents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.events.ServeHTTP(w, r)
+}
+
+func (s *ShareServer) handleSettings(w http.ResponseWriter, r *http.Request) {
+	if s.settings == nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "settings store not available"})
+		return
+	}
+
+	key := strings.TrimPrefix(r.URL.Path, "/api/settings")
+	key = strings.TrimPrefix(key, "/")
+	key = strings.TrimSpace(key)
+	if key == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "missing key"})
+		return
+	}
+	if !isValidSettingKey(key) {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid key"})
+		return
+	}
+
+	switch r.Method {
+	case http.MethodGet:
+		raw, ok, err := s.settings.Get(key)
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "read settings failed"})
+			return
+		}
+		if !ok {
+			writeJSON(w, http.StatusNotFound, map[string]string{"error": "not found"})
+			return
+		}
+		writeJSON(w, http.StatusOK, struct {
+			Value json.RawMessage `json:"value"`
+		}{Value: raw})
+		return
+
+	case http.MethodPut:
+		var req struct {
+			Value json.RawMessage `json:"value"`
+		}
+		dec := json.NewDecoder(r.Body)
+		dec.DisallowUnknownFields()
+		if err := dec.Decode(&req); err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid json"})
+			return
+		}
+
+		// Treat null/empty as delete.
+		if len(req.Value) == 0 || string(req.Value) == "null" {
+			if err := s.settings.Delete(key); err != nil {
+				writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "delete setting failed"})
+				return
+			}
+			writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+			return
+		}
+
+		if !json.Valid(req.Value) {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid json value"})
+			return
+		}
+		if err := s.settings.Set(key, req.Value); err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "save setting failed"})
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+		return
+	default:
+		w.Header().Set("Allow", "GET, PUT")
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+}
+
+func isValidSettingKey(key string) bool {
+	if len(key) == 0 || len(key) > 256 {
+		return false
+	}
+	// Keep URL/path parsing simple and avoid surprising keys.
+	if strings.Contains(key, "/") || strings.Contains(key, "\\") {
+		return false
+	}
+	return true
 }
 
 func (s *ShareServer) handleFiles(w http.ResponseWriter, r *http.Request) {
@@ -374,7 +474,8 @@ func (s *ShareServer) handleDownload(w http.ResponseWriter, r *http.Request) {
 }
 
 type pathsRequest struct {
-	Paths []string `json:"paths"`
+	Paths  []string `json:"paths"`
+	Ignore []string `json:"ignore"`
 }
 
 func (s *ShareServer) handleDownloadZip(w http.ResponseWriter, r *http.Request) {
@@ -401,6 +502,74 @@ func (s *ShareServer) handleDownloadZip(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	ignoreNames := make([]string, 0, len(req.Ignore))
+	ignorePrefixes := make([]string, 0, len(req.Ignore))
+	seenIgnore := make(map[string]struct{}, len(req.Ignore))
+	for _, ig := range req.Ignore {
+		ig = strings.TrimSpace(ig)
+		if ig == "" {
+			continue
+		}
+		// Normalize path ignores to forward slashes for zip entry comparison.
+		igNorm := filepath.ToSlash(ig)
+		igNorm = strings.TrimPrefix(igNorm, "/")
+		if _, ok := seenIgnore[igNorm]; ok {
+			continue
+		}
+		seenIgnore[igNorm] = struct{}{}
+		if strings.Contains(igNorm, "/") {
+			ignorePrefixes = append(ignorePrefixes, igNorm)
+		} else {
+			ignoreNames = append(ignoreNames, igNorm)
+		}
+	}
+
+	isIgnoredName := func(name string) bool {
+		if name == "" {
+			return false
+		}
+		for _, ig := range ignoreNames {
+			if runtime.GOOS == "windows" {
+				if strings.EqualFold(name, ig) {
+					return true
+				}
+				continue
+			}
+			if name == ig {
+				return true
+			}
+		}
+		return false
+	}
+
+	isIgnoredZipEntry := func(zipEntry string) bool {
+		if zipEntry == "" {
+			return false
+		}
+		zipEntry = path.Clean(filepath.ToSlash(zipEntry))
+		zipEntry = strings.TrimPrefix(zipEntry, "/")
+
+		// Quick segment name checks.
+		parts := strings.Split(zipEntry, "/")
+		for _, p := range parts {
+			if isIgnoredName(p) {
+				return true
+			}
+		}
+		// Prefix path ignores, e.g. "frontend/node_modules".
+		for _, pref := range ignorePrefixes {
+			p := path.Clean(pref)
+			p = strings.TrimPrefix(p, "/")
+			if p == "" || p == "." {
+				continue
+			}
+			if zipEntry == p || strings.HasPrefix(zipEntry, p+"/") {
+				return true
+			}
+		}
+		return false
+	}
+
 	paths := make([]string, 0, len(req.Paths))
 	seen := make(map[string]struct{}, len(req.Paths))
 	for _, p := range req.Paths {
@@ -415,96 +584,235 @@ func (s *ShareServer) handleDownloadZip(w http.ResponseWriter, r *http.Request) 
 		paths = append(paths, p)
 	}
 	if len(paths) == 0 {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "未选择任何文件"})
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "未选择任何内容"})
 		return
 	}
+	if len(paths) > 200 {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "一次最多选择 200 个路径"})
+		return
+	}
+
+	// 单个文件：保持兼容，直接返回原文件（不打 zip）
 	if len(paths) == 1 {
-		// 单个文件：直接下载原文件，不打包 zip
 		fullPath, ok := safeJoin(root, paths[0])
 		if !ok {
-			writeJSON(w, http.StatusForbidden, map[string]string{"error": "无权限访问此文件"})
+			writeJSON(w, http.StatusForbidden, map[string]string{"error": "无权限访问此路径"})
 			return
 		}
 		st, err := os.Stat(fullPath)
 		if err != nil {
-			writeJSON(w, http.StatusNotFound, map[string]string{"error": "文件不存在"})
+			writeJSON(w, http.StatusNotFound, map[string]string{"error": "路径不存在"})
 			return
 		}
-		if st.IsDir() {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "无法下载文件夹"})
+		rootClean := filepath.Clean(root)
+		fullClean := filepath.Clean(fullPath)
+		isRoot := fullClean == rootClean
+		if runtime.GOOS == "windows" {
+			isRoot = strings.EqualFold(fullClean, rootClean)
+		}
+		if isRoot {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "禁止下载根目录"})
 			return
 		}
-		name := filepath.Base(fullPath)
-		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename*=UTF-8''%s", url.PathEscape(name)))
-		http.ServeFile(w, r, fullPath)
-		return
-	}
-	if len(paths) > 200 {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "一次最多下载 200 个文件"})
-		return
+
+		if !st.IsDir() {
+			name := filepath.Base(fullPath)
+			w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename*=UTF-8''%s", url.PathEscape(name)))
+			http.ServeFile(w, r, fullPath)
+			return
+		}
 	}
 
-	type fileToZip struct {
-		Rel  string
-		Full string
-		Name string
-		Size int64
+	const maxFilesInZip = 2000
+	const maxTotalSize int64 = 2 * 1024 * 1024 * 1024 // 2GB (uncompressed)
+	errTooManyFiles := errors.New("打包文件过多，请减少选择")
+	errTooLarge := errors.New("打包内容过大，请减少选择")
+
+	type zipCandidate struct {
+		fullPath string
+		zipEntry string
+		modTime  time.Time
+		size     int64
 	}
-	files := make([]fileToZip, 0, len(paths))
-	nameCount := map[string]int{}
+
+	// First pass: validate all selected paths and collect files to be zipped.
+	// This ensures we can return a proper JSON error response without corrupting a partially-written zip.
+	candidates := make([]zipCandidate, 0, len(paths))
+	filesAdded := 0
+	var totalSize int64
+	addCandidate := func(fullPath string, zipEntry string, modTime time.Time, size int64) error {
+		if filesAdded >= maxFilesInZip {
+			return errTooManyFiles
+		}
+		totalSize += size
+		if totalSize > maxTotalSize {
+			return errTooLarge
+		}
+		candidates = append(candidates, zipCandidate{fullPath: fullPath, zipEntry: zipEntry, modTime: modTime, size: size})
+		filesAdded++
+		return nil
+	}
+
+	zipName := "shared-" + time.Now().Format("20060102-150405") + ".zip"
+	if len(paths) == 1 {
+		base := path.Base(path.Clean(filepath.ToSlash(paths[0])))
+		if base != "." && base != "" {
+			zipName = base + ".zip"
+		}
+	}
+
 	for _, rel := range paths {
 		full, ok := safeJoin(root, rel)
 		if !ok {
 			writeJSON(w, http.StatusForbidden, map[string]string{"error": "包含无权限访问的路径"})
 			return
 		}
-		st, err := os.Stat(full)
+		rootClean := filepath.Clean(root)
+		fullClean := filepath.Clean(full)
+		isRoot := fullClean == rootClean
+		if runtime.GOOS == "windows" {
+			isRoot = strings.EqualFold(fullClean, rootClean)
+		}
+		if isRoot {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "禁止下载根目录"})
+			return
+		}
+		st, err := os.Lstat(full)
 		if err != nil {
-			writeJSON(w, http.StatusNotFound, map[string]string{"error": "包含不存在的文件"})
+			writeJSON(w, http.StatusNotFound, map[string]string{"error": "包含不存在的路径"})
 			return
 		}
-		if st.IsDir() {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "暂不支持下载文件夹（请只选择文件）"})
+		if st.Mode()&os.ModeSymlink != 0 {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "不支持打包符号链接"})
 			return
 		}
 
-		base := filepath.Base(full)
-		finalName := base
-		if c := nameCount[base]; c > 0 {
-			ext := filepath.Ext(base)
-			stem := strings.TrimSuffix(base, ext)
-			finalName = stem + " (" + strconv.Itoa(c) + ")" + ext
+		cleanRel := path.Clean(filepath.ToSlash(rel))
+		cleanRel = strings.TrimPrefix(cleanRel, "/")
+		if isIgnoredZipEntry(cleanRel) {
+			continue
 		}
-		nameCount[base] = nameCount[base] + 1
 
-		files = append(files, fileToZip{Rel: rel, Full: full, Name: finalName, Size: st.Size()})
+		if !st.IsDir() {
+			if !st.Mode().IsRegular() {
+				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "只支持打包普通文件"})
+				return
+			}
+			if err := addCandidate(full, cleanRel, st.ModTime(), st.Size()); err != nil {
+				writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+				return
+			}
+			continue
+		}
+
+		// 目录：递归打包，保留相对路径前缀
+		walkErr := filepath.WalkDir(full, func(p string, d fs.DirEntry, walkErr error) error {
+			if walkErr != nil {
+				return walkErr
+			}
+			if isIgnoredName(d.Name()) {
+				if d.IsDir() {
+					return filepath.SkipDir
+				}
+				return nil
+			}
+			// 跳过 symlink（避免穿透共享根目录）
+			if d.Type()&fs.ModeSymlink != 0 {
+				if d.IsDir() {
+					return filepath.SkipDir
+				}
+				return nil
+			}
+			if d.IsDir() {
+				return nil
+			}
+			info, err := d.Info()
+			if err != nil {
+				return nil
+			}
+			if !info.Mode().IsRegular() {
+				return nil
+			}
+			relInside, err := filepath.Rel(full, p)
+			if err != nil {
+				return nil
+			}
+			zipEntry := path.Join(cleanRel, filepath.ToSlash(relInside))
+			if isIgnoredZipEntry(zipEntry) {
+				return nil
+			}
+			return addCandidate(p, zipEntry, info.ModTime(), info.Size())
+		})
+		if walkErr != nil {
+			if errors.Is(walkErr, errTooManyFiles) || errors.Is(walkErr, errTooLarge) {
+				writeJSON(w, http.StatusBadRequest, map[string]string{"error": walkErr.Error()})
+				return
+			}
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "打包失败"})
+			return
+		}
 	}
 
-	zipName := "shared-" + time.Now().Format("20060102-150405") + ".zip"
+	if len(candidates) == 0 {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "打包内容为空（已全部被忽略）"})
+		return
+	}
+
+	// Second pass: stream zip once we know we can fulfill the request.
 	w.Header().Set("Content-Type", "application/zip")
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename*=UTF-8''%s", url.PathEscape(zipName)))
 	zw := zip.NewWriter(w)
-	defer func() {
-		_ = zw.Close()
-	}()
+	defer func() { _ = zw.Close() }()
 
-	for _, f := range files {
-		in, err := os.Open(f.Full)
+	usedNames := map[string]int{}
+	makeUnique := func(name string) string {
+		name = path.Clean(strings.TrimPrefix(name, "/"))
+		if name == "." || name == "" {
+			name = "file"
+		}
+		if c := usedNames[name]; c == 0 {
+			usedNames[name] = 1
+			return name
+		}
+		usedNames[name] = usedNames[name] + 1
+		c := usedNames[name] - 1
+
+		dir := path.Dir(name)
+		base := path.Base(name)
+		ext := path.Ext(base)
+		stem := strings.TrimSuffix(base, ext)
+		alt := stem + " (" + strconv.Itoa(c) + ")" + ext
+		if dir != "." {
+			return path.Join(dir, alt)
+		}
+		return alt
+	}
+
+	addFile := func(fullPath string, zipEntry string, modTime time.Time) error {
+		in, err := os.Open(fullPath)
 		if err != nil {
-			return
+			return err
 		}
-		h := &zip.FileHeader{
-			Name:   f.Name,
-			Method: zip.Deflate,
-		}
-		h.SetModTime(time.Now())
+		defer in.Close()
+
+		h := &zip.FileHeader{Name: makeUnique(zipEntry), Method: zip.Deflate}
+		h.SetModTime(modTime)
 		wtr, err := zw.CreateHeader(h)
 		if err != nil {
-			_ = in.Close()
+			return err
+		}
+		_, err = io.Copy(wtr, in)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+
+	for _, c := range candidates {
+		if err := addFile(c.fullPath, c.zipEntry, c.modTime); err != nil {
+			// Response has already started (zip stream). We can't safely switch to JSON.
 			return
 		}
-		_, _ = io.Copy(wtr, in)
-		_ = in.Close()
 	}
 }
 
@@ -706,11 +1014,11 @@ func (s *ShareServer) handleDelete(w http.ResponseWriter, r *http.Request) {
 		paths = append(paths, p)
 	}
 	if len(paths) == 0 {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "未选择任何文件"})
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "未选择任何内容"})
 		return
 	}
 	if len(paths) > 500 {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "一次最多删除 500 个文件"})
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "一次最多删除 500 个路径"})
 		return
 	}
 
@@ -722,13 +1030,27 @@ func (s *ShareServer) handleDelete(w http.ResponseWriter, r *http.Request) {
 			errorsMap[rel] = "无权限"
 			continue
 		}
+		rootClean := filepath.Clean(root)
+		fullClean := filepath.Clean(full)
+		isRoot := fullClean == rootClean
+		if runtime.GOOS == "windows" {
+			isRoot = strings.EqualFold(fullClean, rootClean)
+		}
+		if isRoot {
+			errorsMap[rel] = "禁止删除根目录"
+			continue
+		}
 		st, err := os.Stat(full)
 		if err != nil {
 			errorsMap[rel] = "不存在"
 			continue
 		}
 		if st.IsDir() {
-			errorsMap[rel] = "不支持删除文件夹"
+			if err := os.RemoveAll(full); err != nil {
+				errorsMap[rel] = "删除失败"
+				continue
+			}
+			deleted++
 			continue
 		}
 		if err := os.Remove(full); err != nil {

@@ -1,18 +1,15 @@
 {
-  "name": "frontend",
+  "name": "local-share-web",
   "private": true,
   "version": "0.0.0",
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "esbuild"
-    ]
-  },
+  "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite build --watch",
     "build": "vite build",
     "preview": "vite preview"
   },
   "dependencies": {
+    "@ebay/nice-modal-react": "^1.2.13",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
     "@mui/icons-material": "^7.3.7",
@@ -20,17 +17,17 @@
     "@zimi/hooks": "^0.18.6",
     "clsx": "^2.1.1",
     "lodash-es": "^4.17.23",
-    "qrcode.react": "^4.2.0",
-    "react": "^19.2.3",
-    "react-dom": "^19.2.3",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
     "react-hot-toast": "^2.6.0",
     "swr": "^2.3.8"
   },
   "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.18",
     "@tailwindcss/vite": "^4.1.18",
     "@types/lodash-es": "^4.17.12",
     "@types/node": "^25.0.10",
-    "@types/react": "^19.2.9",
+    "@types/react": "^19.2.10",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.2",
     "autoprefixer": "^10.4.23",

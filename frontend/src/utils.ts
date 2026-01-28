@@ -8,7 +8,7 @@ import {
   GetVersion,
   OpenFolder,
 } from "../wailsjs/go/main/App";
-import { toError } from "./error/utils";
+import { toError } from "@common/error/utils";
 
 export function openUrlInBrowser(url?: string) {
   const trimmedUrl = url?.trim() || "";

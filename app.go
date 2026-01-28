@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"io"
 	"net"
 	"strings"
@@ -139,6 +141,53 @@ func (a *App) StopSharing() error {
 
 func (a *App) GetServerInfo() (*ServerInfo, error) {
 	return a.shareServer.GetServerInfo()
+}
+
+// GetSetting returns a JSON string previously stored under key.
+// If the key does not exist, it returns an empty string.
+func (a *App) GetSetting(key string) (string, error) {
+	key = strings.TrimSpace(key)
+	if key == "" {
+		return "", nil
+	}
+	if !isValidSettingKey(key) {
+		return "", errors.New("invalid key")
+	}
+	if a.shareServer == nil || a.shareServer.settings == nil {
+		return "", errors.New("settings store not available")
+	}
+
+	raw, ok, err := a.shareServer.settings.Get(key)
+	if err != nil {
+		return "", err
+	}
+	if !ok || len(raw) == 0 {
+		return "", nil
+	}
+	return string(raw), nil
+}
+
+// SetSetting stores a JSON string under key. Pass "" or "null" to delete.
+func (a *App) SetSetting(key string, value string) error {
+	key = strings.TrimSpace(key)
+	if key == "" {
+		return nil
+	}
+	if !isValidSettingKey(key) {
+		return errors.New("invalid key")
+	}
+	if a.shareServer == nil || a.shareServer.settings == nil {
+		return errors.New("settings store not available")
+	}
+
+	value = strings.TrimSpace(value)
+	if value == "" || value == "null" {
+		return a.shareServer.settings.Delete(key)
+	}
+	if !json.Valid([]byte(value)) {
+		return errors.New("invalid json")
+	}
+	return a.shareServer.settings.Set(key, json.RawMessage(value))
 }
 
 // OpenFolder opens the given path in the OS file explorer.

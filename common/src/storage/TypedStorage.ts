@@ -1,5 +1,7 @@
 const DEFAULT_TTL = 315360000000; // 10 years
 
+export type Setter<T> = T | Func<[T], T>;
+
 export class TypedStorage<S extends Record<string, any>> {
   ttl: number;
 
@@ -9,14 +11,15 @@ export class TypedStorage<S extends Record<string, any>> {
 
   set<K extends keyof S>(
     key: K,
-    value: S[K] | Func<[S[K] | null], S[K] | null>,
+    value: Setter<S[K] | null>,
     ttl = DEFAULT_TTL,
   ) {
+    type V = S[K] | null;
     try {
-      let finalValue: S[K] | null;
+      let finalValue: V;
       if (typeof value === "function") {
         const currentValue = this.get(key);
-        finalValue = (value as Func<[S[K] | null], S[K] | null>)(currentValue);
+        finalValue = (value as Func<[V], V>)(currentValue);
       } else {
         finalValue = value;
       }
@@ -33,9 +36,9 @@ export class TypedStorage<S extends Record<string, any>> {
     }
   }
 
-  get<K extends keyof S>(key: K): S[K] | null;
+  get<K extends keyof S>(key: K, fallback?: undefined): S[K] | null;
   get<K extends keyof S>(key: K, fallback: S[K]): S[K];
-  get<K extends keyof S>(key: K, fallback?: S[K]): S[K] | null {
+  get<K extends keyof S>(key: K, fallback?: S[K] | undefined): S[K] | null {
     try {
       const raw = localStorage.getItem(String(key));
       if (!raw) return fallback ?? null;

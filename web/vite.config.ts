@@ -13,4 +13,8 @@ export default defineConfig({
       "@common": resolve(__dirname, "../common/src"),
     },
   },
+  build: {
+    outDir: "dist",
+    emptyOutDir: true,
+  },
 });

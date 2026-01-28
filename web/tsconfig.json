@@ -4,22 +4,22 @@
     "paths": {
       "@common/*": ["../common/src/*"]
     },
-    "target": "ES2022",
+    "target": "ES2020",
     "useDefineForClassFields": true,
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "skipLibCheck": true,
 
     "moduleResolution": "Bundler",
-    "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
-    "jsx": "react-jsx",
 
+    "jsx": "react-jsx",
     "strict": true,
-    "allowJs": false,
-    "types": ["vite/client"]
+
+    "types": ["vite/client"],
+    "allowJs": false
   },
-  "include": ["src", "vite.config.ts", "../common/src"]
+  "include": ["src", "../common/src"]
 }
