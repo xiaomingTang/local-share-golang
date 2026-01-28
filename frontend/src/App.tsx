@@ -32,8 +32,8 @@ import {
   openFolder,
   openUrlInBrowser,
 } from "./utils";
-import { cat } from "./error/catch-and-toast";
-import { toError } from "./error/utils";
+import { cat } from "@common/error/catch-and-toast";
+import { toError } from "@common/error/utils";
 import { DropOverlay } from "./dragdrop/DropOverlay";
 import {
   Box,
@@ -44,7 +44,7 @@ import {
   Typography,
 } from "@mui/material";
 import clsx from "clsx";
-import { TypedStorage } from "./TypedStorage";
+import { TypedStorage } from "@common/storage";
 
 const GITHUB_REPO_URL =
   "https://github.com/xiaomingTang/local-share-golang/releases";

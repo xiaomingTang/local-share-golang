@@ -8,7 +8,7 @@ import {
   downloadZipWithIgnore,
   uploadFilesWithProgress,
 } from "./utils/api";
-import { toError } from "./error/utils";
+import { toError } from "@common/error/utils";
 import { BreadcrumbNav } from "./components/BreadcrumbNav";
 import { DirectoryList } from "./components/DirectoryList";
 import { PreviewDialog } from "./components/PreviewDialog";
@@ -25,7 +25,7 @@ import { useFilePreview } from "./hooks/useFilePreview";
 import { useSelection } from "./hooks/useSelection";
 import { useSseDirsRefresh } from "./hooks/useSseDirsRefresh";
 import { useSyncedPath } from "./hooks/useSyncedPath";
-import { TypedStorage, useStorage } from "./TypedStorage";
+import { TypedStorage, useStorage } from "@common/storage";
 
 function buildFilePath(currentPath: string, fileName: string) {
   return currentPath ? `${currentPath}/${fileName}` : fileName;
