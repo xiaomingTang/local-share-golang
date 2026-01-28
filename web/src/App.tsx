@@ -24,9 +24,8 @@ import { useDirectoryListing } from "./hooks/useDirectoryListing";
 import { useSelection } from "./hooks/useSelection";
 import { useSseDirsRefresh } from "./hooks/useSseDirsRefresh";
 import { useSyncedPath } from "./hooks/useSyncedPath";
-import { TypedStorage, useStorage } from "@common/storage";
+import { useRemoteSetting } from "@common/storage";
 import NiceModal from "@ebay/nice-modal-react";
-import { SilentError } from "@common/error/silent-error";
 import { cat } from "@common/error/catch-and-toast";
 
 function buildFilePath(currentPath: string, fileName: string) {
@@ -34,10 +33,6 @@ function buildFilePath(currentPath: string, fileName: string) {
 }
 
 const DOWNLOAD_SETTINGS_KEY = "localshare.web.downloadZipSettings.v1" as const;
-type WebStorageSchema = {
-  [DOWNLOAD_SETTINGS_KEY]: DownloadZipSettingsValue;
-};
-const storage = new TypedStorage<WebStorageSchema>();
 
 const defaultDownloadSettings: DownloadZipSettingsValue = {
   enabledPresetKeys: DEFAULT_IGNORE_PRESETS.filter(
@@ -50,11 +45,11 @@ export default function App() {
   const { currentPath, setPath } = useSyncedPath();
   const [uploadPct, setUploadPct] = useState<number>(0);
   const [uploading, setUploading] = useState<boolean>(false);
-  const [downloadSettings, setDownloadSettings] = useStorage(
-    storage,
-    DOWNLOAD_SETTINGS_KEY,
-    defaultDownloadSettings,
-  );
+  const [downloadSettings, setDownloadSettings] =
+    useRemoteSetting<DownloadZipSettingsValue>(
+      DOWNLOAD_SETTINGS_KEY,
+      defaultDownloadSettings,
+    );
 
   const {
     rootName,
@@ -213,12 +208,12 @@ export default function App() {
         selectedTotal={selected.size}
         onSelectAll={onSelectAll}
         onDownloadSelected={() => void downloadSelected()}
-        onOpenDownloadSettings={cat(async () => {
-          const next = (await NiceModal.show(DownloadZipSettingsDialog, {
+        onOpenDownloadSettings={cat(async () =>
+          NiceModal.show(DownloadZipSettingsDialog, {
             value: downloadSettings,
-          })) as DownloadZipSettingsValue;
-          setDownloadSettings(next);
-        })}
+            onSave: (v) => setDownloadSettings(v),
+          }),
+        )}
         onDeleteSelected={() => void deleteSelected()}
         onClearSelection={clearSelection}
       />

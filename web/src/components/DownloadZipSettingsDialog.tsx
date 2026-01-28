@@ -14,8 +14,10 @@ import {
 import NiceModal, { useModal } from "@ebay/nice-modal-react";
 
 import { muiDialogV5ReplaceOnClose } from "@common/utils/muiDialogV5ReplaceOnClose";
+import { useThrottle } from "@common/utils/useThrottle";
 import { SilentError } from "@common/error/silent-error";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useMountedRef } from "@common/utils/useMounted";
 
 export type DownloadZipIgnorePreset = {
   key: string;
@@ -68,10 +70,22 @@ export function buildIgnoreList(value: DownloadZipSettingsValue) {
   return out;
 }
 
+interface DownloadZipSettingsDialogProps {
+  value: DownloadZipSettingsValue;
+  onSave?: (value: DownloadZipSettingsValue) => void;
+}
+
 export const DownloadZipSettingsDialog = NiceModal.create(
-  (props: { value: DownloadZipSettingsValue }) => {
+  (props: DownloadZipSettingsDialogProps) => {
     const modal = useModal();
     const [value, setValue] = useState<DownloadZipSettingsValue>(props.value);
+
+    const throttledOnSave = useThrottle(
+      (v: DownloadZipSettingsValue) => props.onSave?.(v),
+      400,
+      { leading: true, trailing: true },
+    );
+    const didMountRef = useMountedRef();
 
     const enabled = new Set(value.enabledPresetKeys || []);
 
@@ -79,8 +93,15 @@ export const DownloadZipSettingsDialog = NiceModal.create(
       const next = new Set(value.enabledPresetKeys || []);
       if (checked) next.add(key);
       else next.delete(key);
-      setValue({ ...value, enabledPresetKeys: Array.from(next) });
+      const nextObj = { ...value, enabledPresetKeys: Array.from(next) };
+      setValue(nextObj);
     }
+
+    useEffect(() => {
+      if (didMountRef.current) {
+        throttledOnSave(value);
+      }
+    }, [throttledOnSave, value]);
 
     return (
       <Dialog {...muiDialogV5ReplaceOnClose(modal)} maxWidth="sm" fullWidth>

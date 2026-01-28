@@ -44,19 +44,14 @@ import {
   Typography,
 } from "@mui/material";
 import clsx from "clsx";
-import { TypedStorage } from "@common/storage";
+import { useRemoteSetting } from "@common/storage";
 
 const GITHUB_REPO_URL =
   "https://github.com/xiaomingTang/local-share-golang/releases";
 
-const UPDATE_CHECK_CLICK_KEY = "local-share:update-check-click";
+const UPDATE_CHECK_CLICK_KEY = "local-share:update-check-click" as const;
 const UPDATE_CHECK_TIP_THRESHOLD = 10;
-
-const tipStorage = new TypedStorage<{
-  [UPDATE_CHECK_CLICK_KEY]: number[];
-}>({
-  ttl: 60 * 60 * 1000, // 1 hour
-});
+const UPDATE_CHECK_CLICK_WINDOW_MS = 60 * 60 * 1000; // 1 hour
 
 function ctxMenuExistsLabel(res: SWRResponse<boolean, unknown>) {
   if (res.error) return "检测失败（点击重试）";
@@ -169,6 +164,18 @@ function CopyableText(props: { text?: string }) {
 export default function App() {
   const [dropOverlayActive, setDropOverlayActive] = useState(false);
   const [showRateTip, setShowRateTip] = useState(false);
+  const [updateCheckClicks, setUpdateCheckClicks] = useRemoteSetting<number[]>(
+    UPDATE_CHECK_CLICK_KEY,
+    [],
+  );
+
+  useEffect(() => {
+    const now = Date.now();
+    const recent = updateCheckClicks.filter(
+      (ts) => now - ts < UPDATE_CHECK_CLICK_WINDOW_MS,
+    );
+    setShowRateTip(recent.length >= UPDATE_CHECK_TIP_THRESHOLD);
+  }, [updateCheckClicks]);
 
   const ctxMenuExistsRes = useSWR("CheckContextMenuExists", () =>
     CheckContextMenuExists().then((res) => !!res?.exists),
@@ -364,10 +371,15 @@ export default function App() {
                 disabled={isCheckingUpdate}
                 onClick={withCheckingUpdate(
                   cat(async () => {
-                    const list = tipStorage.get(UPDATE_CHECK_CLICK_KEY, []);
-                    list.push(Date.now());
-                    tipStorage.set(UPDATE_CHECK_CLICK_KEY, list);
-                    setShowRateTip(list.length >= UPDATE_CHECK_TIP_THRESHOLD);
+                    const now = Date.now();
+                    setUpdateCheckClicks((prev) => {
+                      const recent = prev.filter(
+                        (ts) => now - ts < UPDATE_CHECK_CLICK_WINDOW_MS,
+                      );
+                      const next = [...recent, now];
+                      setShowRateTip(next.length >= UPDATE_CHECK_TIP_THRESHOLD);
+                      return next;
+                    });
                     await checkForUpdate();
                   }),
                 )}

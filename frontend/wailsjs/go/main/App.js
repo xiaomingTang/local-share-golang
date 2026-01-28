@@ -26,6 +26,10 @@ export function GetServerInfo() {
   return window['go']['main']['App']['GetServerInfo']();
 }
 
+export function GetSetting(arg1) {
+  return window['go']['main']['App']['GetSetting'](arg1);
+}
+
 export function GetVersion() {
   return window['go']['main']['App']['GetVersion']();
 }
@@ -40,6 +44,10 @@ export function PickFolder() {
 
 export function SetContextMenuEnabled(arg1) {
   return window['go']['main']['App']['SetContextMenuEnabled'](arg1);
+}
+
+export function SetSetting(arg1, arg2) {
+  return window['go']['main']['App']['SetSetting'](arg1, arg2);
 }
 
 export function StartSharing(arg1) {

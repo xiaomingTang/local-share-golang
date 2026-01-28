@@ -45,7 +45,8 @@ type filesResponse struct {
 }
 
 type ShareServer struct {
-	mu sync.RWMutex
+	mu       sync.RWMutex
+	settings *SettingsStore
 
 	sharedRoot string
 	localIP    string
@@ -62,7 +63,7 @@ type ShareServer struct {
 }
 
 func NewShareServer() *ShareServer {
-	return &ShareServer{events: newSSEHub()}
+	return &ShareServer{events: newSSEHub(), settings: NewSettingsStore()}
 }
 
 func (s *ShareServer) IsRunning() bool {
@@ -281,6 +282,8 @@ func (s *ShareServer) registerRoutes(mux *http.ServeMux) {
 
 	mux.HandleFunc("/api/files", s.handleFiles)
 	mux.HandleFunc("/api/events", s.handleEvents)
+	mux.HandleFunc("/api/settings/", s.handleSettings)
+	mux.HandleFunc("/api/settings", s.handleSettings)
 	mux.HandleFunc("/api/download", s.handleDownload)
 	mux.HandleFunc("/api/download-zip", s.handleDownloadZip)
 	mux.HandleFunc("/api/preview", s.handlePreview)
@@ -294,6 +297,89 @@ func (s *ShareServer) handleEvents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.events.ServeHTTP(w, r)
+}
+
+func (s *ShareServer) handleSettings(w http.ResponseWriter, r *http.Request) {
+	if s.settings == nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "settings store not available"})
+		return
+	}
+
+	key := strings.TrimPrefix(r.URL.Path, "/api/settings")
+	key = strings.TrimPrefix(key, "/")
+	key = strings.TrimSpace(key)
+	if key == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "missing key"})
+		return
+	}
+	if !isValidSettingKey(key) {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid key"})
+		return
+	}
+
+	switch r.Method {
+	case http.MethodGet:
+		raw, ok, err := s.settings.Get(key)
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "read settings failed"})
+			return
+		}
+		if !ok {
+			writeJSON(w, http.StatusNotFound, map[string]string{"error": "not found"})
+			return
+		}
+		writeJSON(w, http.StatusOK, struct {
+			Value json.RawMessage `json:"value"`
+		}{Value: raw})
+		return
+
+	case http.MethodPut:
+		var req struct {
+			Value json.RawMessage `json:"value"`
+		}
+		dec := json.NewDecoder(r.Body)
+		dec.DisallowUnknownFields()
+		if err := dec.Decode(&req); err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid json"})
+			return
+		}
+
+		// Treat null/empty as delete.
+		if len(req.Value) == 0 || string(req.Value) == "null" {
+			if err := s.settings.Delete(key); err != nil {
+				writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "delete setting failed"})
+				return
+			}
+			writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+			return
+		}
+
+		if !json.Valid(req.Value) {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid json value"})
+			return
+		}
+		if err := s.settings.Set(key, req.Value); err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "save setting failed"})
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+		return
+	default:
+		w.Header().Set("Allow", "GET, PUT")
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+}
+
+func isValidSettingKey(key string) bool {
+	if len(key) == 0 || len(key) > 256 {
+		return false
+	}
+	// Keep URL/path parsing simple and avoid surprising keys.
+	if strings.Contains(key, "/") || strings.Contains(key, "\\") {
+		return false
+	}
+	return true
 }
 
 func (s *ShareServer) handleFiles(w http.ResponseWriter, r *http.Request) {

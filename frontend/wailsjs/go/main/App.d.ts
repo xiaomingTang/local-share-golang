@@ -14,6 +14,8 @@ export function GetDownloadsDir():Promise<string>;
 
 export function GetServerInfo():Promise<main.ServerInfo>;
 
+export function GetSetting(arg1:string):Promise<string>;
+
 export function GetVersion():Promise<string>;
 
 export function OpenFolder(arg1:string):Promise<void>;
@@ -21,6 +23,8 @@ export function OpenFolder(arg1:string):Promise<void>;
 export function PickFolder():Promise<string>;
 
 export function SetContextMenuEnabled(arg1:boolean):Promise<void>;
+
+export function SetSetting(arg1:string,arg2:string):Promise<void>;
 
 export function StartSharing(arg1:string):Promise<main.ServerInfo>;
 
