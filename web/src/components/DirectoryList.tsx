@@ -1,6 +1,7 @@
 import { Button, Checkbox } from "@mui/material";
 import type { DirectoryItem } from "../types";
 import { canPreview, formatFileSize, getFileIcon } from "../utils/fileUtils";
+import clsx from "clsx";
 
 export type DirectoryListProps = {
   currentPath: string;
@@ -48,11 +49,10 @@ export function DirectoryList(props: DirectoryListProps) {
           return (
             <div
               key={`${it.type}:${it.name}`}
-              className={
-                "flex items-center gap-3 px-4 py-3 " +
-                (it.hidden ? "opacity-60" : "") +
-                (isSelected ? " bg-blue-500/10" : "")
-              }
+              className={clsx(
+                "flex items-center gap-3 px-4 py-3 ",
+                isSelected ? " bg-blue-500/10" : "",
+              )}
               onDoubleClick={() => {
                 if (isDir) onOpenFolder(it.name);
                 else if (previewable) onOpenPreview(it.name);
@@ -66,7 +66,12 @@ export function DirectoryList(props: DirectoryListProps) {
                 />
               </div>
               <div className="w-10 select-none text-xl">{getFileIcon(it)}</div>
-              <div className="min-w-0 flex-1">
+              <div
+                className={clsx(
+                  "min-w-0 flex-1",
+                  it.hidden ? "opacity-50" : "",
+                )}
+              >
                 <div className="truncate font-medium">{it.name}</div>
                 <div className="text-xs opacity-70">
                   {date}
