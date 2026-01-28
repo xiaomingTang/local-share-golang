@@ -21,11 +21,13 @@ import {
   type DownloadZipSettingsValue,
 } from "./components/DownloadZipSettingsDialog";
 import { useDirectoryListing } from "./hooks/useDirectoryListing";
-import { useFilePreview } from "./hooks/useFilePreview";
 import { useSelection } from "./hooks/useSelection";
 import { useSseDirsRefresh } from "./hooks/useSseDirsRefresh";
 import { useSyncedPath } from "./hooks/useSyncedPath";
 import { TypedStorage, useStorage } from "@common/storage";
+import NiceModal from "@ebay/nice-modal-react";
+import { SilentError } from "@common/error/silent-error";
+import { cat } from "@common/error/catch-and-toast";
 
 function buildFilePath(currentPath: string, fileName: string) {
   return currentPath ? `${currentPath}/${fileName}` : fileName;
@@ -38,7 +40,9 @@ type WebStorageSchema = {
 const storage = new TypedStorage<WebStorageSchema>();
 
 const defaultDownloadSettings: DownloadZipSettingsValue = {
-  enabledPresetKeys: DEFAULT_IGNORE_PRESETS.map((p) => p.key),
+  enabledPresetKeys: DEFAULT_IGNORE_PRESETS.filter(
+    (p) => p.defaultSelected,
+  ).map((p) => p.key),
   customIgnore: "",
 };
 
@@ -46,8 +50,6 @@ export default function App() {
   const { currentPath, setPath } = useSyncedPath();
   const [uploadPct, setUploadPct] = useState<number>(0);
   const [uploading, setUploading] = useState<boolean>(false);
-
-  const [downloadSettingsOpen, setDownloadSettingsOpen] = useState(false);
   const [downloadSettings, setDownloadSettings] = useStorage(
     storage,
     DOWNLOAD_SETTINGS_KEY,
@@ -78,16 +80,14 @@ export default function App() {
     clearSelection,
   } = useSelection({ currentPath, items: entriesInFolder, buildFilePath });
 
-  const {
-    preview,
-    openPreview,
-    closePreview,
-    title: previewTitle,
-    previewError,
-    previewIsValidating,
-    previewObjectUrl,
-    text: previewText,
-  } = useFilePreview({ currentPath, buildFilePath });
+  const openPreview = cat(async function openPreview(fileName: string) {
+    const filePath = buildFilePath(currentPath, fileName);
+    await NiceModal.show(PreviewDialog, {
+      title: fileName,
+      filePath,
+      onDownload: () => downloadFile(fileName),
+    });
+  });
 
   function onOpenFolder(folderName: string) {
     const next = currentPath ? `${currentPath}/${folderName}` : folderName;
@@ -205,8 +205,6 @@ export default function App() {
   const directoryErrorText = filesError
     ? toError(filesError).message
     : undefined;
-  const previewErrorText = previewError ? toError(previewError).message : "";
-
   return (
     <div className="mx-auto w-full max-w-4xl px-4 py-6">
       <SelectionBar
@@ -215,16 +213,14 @@ export default function App() {
         selectedTotal={selected.size}
         onSelectAll={onSelectAll}
         onDownloadSelected={() => void downloadSelected()}
-        onOpenDownloadSettings={() => setDownloadSettingsOpen(true)}
+        onOpenDownloadSettings={cat(async () => {
+          const next = (await NiceModal.show(DownloadZipSettingsDialog, {
+            value: downloadSettings,
+          })) as DownloadZipSettingsValue;
+          setDownloadSettings(next);
+        })}
         onDeleteSelected={() => void deleteSelected()}
         onClearSelection={clearSelection}
-      />
-
-      <DownloadZipSettingsDialog
-        open={downloadSettingsOpen}
-        value={downloadSettings}
-        onChange={(next) => setDownloadSettings(next)}
-        onClose={() => setDownloadSettingsOpen(false)}
       />
 
       <Paper
@@ -255,19 +251,6 @@ export default function App() {
         uploading={uploading}
         uploadPct={uploadPct}
         onUpload={handleUpload}
-      />
-
-      <PreviewDialog
-        open={preview.open}
-        title={previewTitle}
-        isLoading={preview.open && previewIsValidating}
-        imageUrl={previewObjectUrl}
-        text={previewErrorText || previewText}
-        onClose={closePreview}
-        onDownload={() => {
-          if (!preview.open) return;
-          downloadFile(preview.fileName);
-        }}
       />
     </div>
   );

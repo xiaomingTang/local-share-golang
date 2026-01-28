@@ -3,6 +3,8 @@ import "./app.css";
 import React from "react";
 import ReactDOM from "react-dom/client";
 
+import NiceModal from "@ebay/nice-modal-react";
+
 import { CssBaseline, ThemeProvider, createTheme } from "@mui/material";
 
 import App from "./App";
@@ -29,14 +31,16 @@ ReactDOM.createRoot(document.getElementById("app")!).render(
       <SWRConfig
         value={{ revalidateOnFocus: false, shouldRetryOnError: false }}
       >
-        <CssBaseline />
-        <App />
-        <Toaster
-          position="top-center"
-          gutter={8}
-          containerStyle={{ top: 18 }}
-          toastOptions={{ duration: 2500 }}
-        />
+        <NiceModal.Provider>
+          <CssBaseline />
+          <App />
+          <Toaster
+            position="top-center"
+            gutter={8}
+            containerStyle={{ top: 18 }}
+            toastOptions={{ duration: 2500 }}
+          />
+        </NiceModal.Provider>
       </SWRConfig>
     </ThemeProvider>
   </React.StrictMode>,

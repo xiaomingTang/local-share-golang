@@ -7,23 +7,47 @@ import {
   LinearProgress,
 } from "@mui/material";
 
+import NiceModal, { useModal } from "@ebay/nice-modal-react";
+import useSWR from "swr";
+
+import { muiDialogV5ReplaceOnClose } from "@common/utils/muiDialogV5ReplaceOnClose";
+import { SilentError } from "@common/error/silent-error";
+
+import { fetchPreview } from "../utils/api";
+import { isImageType } from "../utils/fileUtils";
+import { useObjectURL } from "../hooks/useObjectURL";
+
 export type PreviewDialogProps = {
-  open: boolean;
   title: string;
-  isLoading: boolean;
-  imageUrl: string | null;
-  text: string;
-  onClose: () => void;
+  filePath: string;
   onDownload: () => void;
 };
 
-export function PreviewDialog(props: PreviewDialogProps) {
-  const { open, title, isLoading, imageUrl, text, onClose, onDownload } = props;
+export const PreviewDialog = NiceModal.create((props: PreviewDialogProps) => {
+  const modal = useModal();
+  const { title, filePath, onDownload } = props;
+
+  const {
+    data: previewData,
+    error: previewError,
+    isValidating: previewIsValidating,
+  } = useSWR(["preview", filePath], async ([, fp]) => fetchPreview(fp));
+
+  const imageUrl = useObjectURL(
+    isImageType(previewData?.contentType ?? "")
+      ? (previewData?.blob ?? null)
+      : null,
+  );
+
+  const text = imageUrl
+    ? ""
+    : previewError instanceof Error
+      ? previewError.message
+      : (previewData?.text ?? "");
 
   return (
     <Dialog
-      open={open}
-      onClose={onClose}
+      {...muiDialogV5ReplaceOnClose(modal)}
       maxWidth="md"
       fullWidth
       slotProps={{
@@ -37,19 +61,19 @@ export function PreviewDialog(props: PreviewDialogProps) {
     >
       <DialogTitle>{title}</DialogTitle>
       <DialogContent dividers>
-        {isLoading && (
+        {previewIsValidating && (
           <div className="py-10">
             <LinearProgress />
           </div>
         )}
-        {!isLoading && imageUrl && (
+        {!previewIsValidating && imageUrl && (
           <img
             src={imageUrl}
             alt={title}
             className="mx-auto max-h-[70vh] max-w-full rounded-lg"
           />
         )}
-        {!isLoading && !imageUrl && (
+        {!previewIsValidating && !imageUrl && (
           <textarea
             disabled
             readOnly
@@ -63,7 +87,13 @@ export function PreviewDialog(props: PreviewDialogProps) {
         )}
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose} variant="outlined">
+        <Button
+          onClick={() => {
+            modal.reject(new SilentError("操作已取消"));
+            void modal.hide();
+          }}
+          variant="outlined"
+        >
           关闭
         </Button>
         <Button onClick={onDownload} variant="contained">
@@ -72,4 +102,4 @@ export function PreviewDialog(props: PreviewDialogProps) {
       </DialogActions>
     </Dialog>
   );
-}
+});
