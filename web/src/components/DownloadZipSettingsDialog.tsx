@@ -150,21 +150,12 @@ export const DownloadZipSettingsDialog = NiceModal.create(
         <DialogActions>
           <Button
             onClick={() => {
-              modal.reject(new SilentError("操作已取消"));
-              void modal.hide();
-            }}
-            variant="text"
-          >
-            取消
-          </Button>
-          <Button
-            onClick={() => {
               modal.resolve(value);
               void modal.hide();
             }}
             variant="contained"
           >
-            保存
+            知道了
           </Button>
         </DialogActions>
       </Dialog>
