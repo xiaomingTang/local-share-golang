@@ -2,7 +2,10 @@ import { useEffect, useState } from "react";
 import useSWR, { SWRResponse } from "swr";
 import { QRCodeCanvas } from "qrcode.react";
 
+import NiceModal from "@ebay/nice-modal-react";
+
 import {
+  ApplyCustomPorts,
   CheckContextMenuExists,
   GetServerInfo,
   GetVersion,
@@ -11,8 +14,6 @@ import {
   StartSharing,
   StopSharing,
 } from "../wailsjs/go/main/App";
-
-import { EventsOn } from "../wailsjs/runtime/runtime";
 
 import { toast } from "react-hot-toast";
 import { useLoading } from "@zimi/hooks";
@@ -26,30 +27,24 @@ import AdsClickIcon from "@mui/icons-material/AdsClick";
 import OpenInBrowserRoundedIcon from "@mui/icons-material/OpenInBrowserRounded";
 
 import GithubCornerSvg from "./assets/github-corner.svg?react";
-import {
-  checkForUpdate,
-  copyText,
-  openFolder,
-  openUrlInBrowser,
-} from "./utils";
+import { checkForUpdate, openFolder, openUrlInBrowser } from "./utils";
 import { cat } from "@common/error/catch-and-toast";
 import { toError } from "@common/error/utils";
 import { DropOverlay } from "./dragdrop/DropOverlay";
-import {
-  Box,
-  ButtonBase,
-  ButtonGroup,
-  Stack,
-  styled,
-  Typography,
-} from "@mui/material";
+import { Box, ButtonBase, ButtonGroup, Stack, Typography } from "@mui/material";
 import clsx from "clsx";
 import { useRemoteSetting } from "@common/storage";
+import { useEventsOn } from "./hooks/useEventsOn";
+import { CustomPortDialog } from "./components/CustomPortDialog";
+import { TextButton } from "./components/TextButton";
+import { KV } from "./components/KV";
+import { CopyableText } from "./components/CopyableText";
 
 const GITHUB_REPO_URL =
   "https://github.com/xiaomingTang/local-share-golang/releases";
 
 const UPDATE_CHECK_CLICK_KEY = "local-share:update-check-click" as const;
+const CUSTOM_PORT_KEY = "local-share:custom-port" as const;
 const UPDATE_CHECK_TIP_THRESHOLD = 10;
 const UPDATE_CHECK_CLICK_WINDOW_MS = 60 * 60 * 1000; // 1 hour
 
@@ -86,81 +81,6 @@ async function sharingFromDroppedPaths(paths: string[]) {
   throw lastErr;
 }
 
-interface RowProps {
-  k?: React.ReactNode;
-  v?: React.ReactNode;
-  hidden?: boolean;
-}
-
-function Row({ k, v, hidden }: RowProps) {
-  return (
-    <Stack
-      direction="row"
-      spacing={2}
-      alignItems="center"
-      sx={{
-        opacity: hidden ? 0 : 1,
-        pointerEvents: hidden ? "none" : "auto",
-        userSelect: hidden ? "none" : "auto",
-        transition: "opacity 0.3s",
-      }}
-    >
-      <Box
-        sx={{
-          minWidth: "110px",
-          display: "flex",
-          justifyContent: "flex-end",
-          alignItems: "center",
-          color: "#A9ADB3",
-        }}
-      >
-        {k}
-      </Box>
-      <Box
-        sx={{
-          flex: 1,
-          display: "flex",
-          justifyContent: "flex-start",
-          alignItems: "center",
-        }}
-      >
-        {v}
-      </Box>
-    </Stack>
-  );
-}
-
-const TextButton = styled(Button)(({ theme }) => ({
-  variant: "text",
-  size: "small",
-  minWidth: 0,
-  padding: 0,
-  textDecoration: "underline",
-  textUnderlineOffset: "3px",
-  color: "inherit",
-  font: "inherit",
-}));
-
-function CopyableText(props: { text?: string }) {
-  const trimmedText = props.text?.trim() || "";
-  return (
-    <TextButton
-      title={trimmedText ? "点击复制" : undefined}
-      disabled={!trimmedText}
-      sx={{
-        textDecoration: trimmedText ? "underline" : "none",
-      }}
-      onClick={() => {
-        if (trimmedText) {
-          copyText(trimmedText);
-        }
-      }}
-    >
-      {props.text ?? "-"}
-    </TextButton>
-  );
-}
-
 export default function App() {
   const [dropOverlayActive, setDropOverlayActive] = useState(false);
   const [showRateTip, setShowRateTip] = useState(false);
@@ -184,6 +104,14 @@ export default function App() {
 
   const [isCheckingUpdate, withCheckingUpdate] = useLoading();
 
+  const [customPortText, setCustomPortText] = useRemoteSetting<string>(
+    CUSTOM_PORT_KEY,
+    "",
+  );
+
+  const [isStartingSharing, withStartingSharing] = useLoading();
+  const [isApplyingPorts, withApplyingPorts] = useLoading();
+
   const { data: serverInfo, mutate: mutateServerInfo } = useSWR(
     "GetServerInfo",
     () => GetServerInfo(),
@@ -193,19 +121,23 @@ export default function App() {
 
   const { data: appVersion } = useSWR("GetVersion", () => GetVersion());
 
-  const tryToShare = cat(async () => {
-    const dir = await PickFolder();
-    if (!dir) return;
-    await StartSharing(dir);
-    await mutateServerInfo();
-  });
+  const tryToShare = withStartingSharing(
+    cat(async () => {
+      const dir = await PickFolder();
+      if (!dir) return;
+      await StartSharing(dir);
+      await mutateServerInfo();
+    }),
+  );
 
   useEffect(() => {
-    const tryStartSharingFromDroppedPaths = cat(async (paths: string[]) => {
-      await sharingFromDroppedPaths(paths);
-      await mutateServerInfo();
-      toast.success("已开始共享");
-    });
+    const tryStartSharingFromDroppedPaths = withStartingSharing(
+      cat(async (paths: string[]) => {
+        await sharingFromDroppedPaths(paths);
+        await mutateServerInfo();
+        toast.success("已开始共享");
+      }),
+    );
     const cleanup = initShareFileDrop({
       setDropOverlayActive,
       tryStartSharingFromDroppedPaths,
@@ -213,10 +145,16 @@ export default function App() {
     return cleanup;
   }, []);
 
-  useEffect(() => {
-    const cleanup = EventsOn("serverInfoChanged", () => mutateServerInfo());
-    return cleanup;
-  }, []);
+  useEventsOn("serverInfoChanged", () => mutateServerInfo());
+  useEventsOn("toastError", (msg: unknown) => {
+    const text = typeof msg === "string" ? msg : String(msg ?? "");
+    if (text) toast.error(text);
+  });
+
+  const applyCustomPortText = withApplyingPorts(async (text: string) => {
+    await ApplyCustomPorts(String(text).trim());
+    await mutateServerInfo();
+  });
 
   return (
     <>
@@ -260,7 +198,7 @@ export default function App() {
             也可以把文件夹拖拽到窗口开始共享
           </div>
 
-          <Row
+          <KV
             k="共享文件夹"
             hidden={!serverUrl}
             v={
@@ -283,7 +221,7 @@ export default function App() {
 
           <Box height="4px" />
 
-          <Row
+          <KV
             k="访问地址"
             hidden={!serverUrl}
             v={
@@ -345,7 +283,7 @@ export default function App() {
         </div>
 
         <div className="bg-white/5 rounded-xl border border-white/10 p-4 mt-3">
-          <Row
+          <KV
             k="右键菜单"
             v={
               <TextButton
@@ -362,9 +300,28 @@ export default function App() {
             }
           />
 
-          <Box height="4px" />
+          <KV
+            sx={{ mt: 1, mb: 1 }}
+            k={
+              <TextButton
+                onClick={() => {
+                  void NiceModal.show(CustomPortDialog, {
+                    value: customPortText,
+                    serverInfo,
+                    onSave: (v) => setCustomPortText(v),
+                    onApply: (v) => applyCustomPortText(v),
+                  });
+                }}
+              >
+                自定义端口
+              </TextButton>
+            }
+            v={
+              <Typography color="action.disabled">{customPortText}</Typography>
+            }
+          />
 
-          <Row
+          <KV
             k={
               <TextButton
                 size="small"

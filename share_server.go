@@ -23,10 +23,14 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 //go:embed all:web/dist
 var webAssets embed.FS
+
+const settingKeyCustomPort = "local-share:custom-port"
 
 type directoryItem struct {
 	Name      string  `json:"name"`
@@ -86,6 +90,44 @@ func (s *ShareServer) GetServerInfo() (*ServerInfo, error) {
 	}, nil
 }
 
+func (s *ShareServer) getCustomPortFromSettings() (int, bool, error) {
+	if s.settings == nil {
+		return 0, false, nil
+	}
+	raw, ok, err := s.settings.Get(settingKeyCustomPort)
+	if err != nil {
+		return 0, false, err
+	}
+	if !ok || len(raw) == 0 {
+		return 0, false, nil
+	}
+	var input string
+	if err := json.Unmarshal(raw, &input); err != nil {
+		return 0, false, err
+	}
+	input = strings.TrimSpace(input)
+	if input == "" {
+		return 0, false, nil
+	}
+	port, err := strconv.Atoi(input)
+	if err != nil || port <= 0 || port > 65535 {
+		return 0, false, errors.New("无效端口")
+	}
+	return port, true, nil
+}
+
+func (s *ShareServer) buildHTTPServer() *http.Server {
+	mux := http.NewServeMux()
+	s.registerRoutes(mux)
+	return &http.Server{
+		Handler:           mux,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       0,
+		WriteTimeout:      0,
+		IdleTimeout:       60 * time.Second,
+	}
+}
+
 func (s *ShareServer) Start(ctx context.Context, folderPath string) (*ServerInfo, error) {
 	folderPath = strings.TrimSpace(folderPath)
 	folderPath = strings.Trim(folderPath, "\"")
@@ -132,21 +174,29 @@ func (s *ShareServer) Start(ctx context.Context, folderPath string) (*ServerInfo
 	if err != nil {
 		return nil, err
 	}
-	port, ln, err := getAvailablePort()
-	if err != nil {
-		return nil, err
+
+	var port int
+	var ln net.Listener
+	customPortUnavailable := false
+	if customPort, ok, perr := s.getCustomPortFromSettings(); perr == nil && ok {
+		l, lerr := net.Listen("tcp", fmt.Sprintf(":%d", customPort))
+		if lerr != nil {
+			customPortUnavailable = true
+		} else {
+			port = customPort
+			ln = l
+		}
+	}
+	if ln == nil {
+		p, l, lerr := getAvailablePort()
+		if lerr != nil {
+			return nil, lerr
+		}
+		port = p
+		ln = l
 	}
 
-	mux := http.NewServeMux()
-	s.registerRoutes(mux)
-
-	srv := &http.Server{
-		Handler:           mux,
-		ReadHeaderTimeout: 10 * time.Second,
-		ReadTimeout:       0,
-		WriteTimeout:      0,
-		IdleTimeout:       60 * time.Second,
-	}
+	srv := s.buildHTTPServer()
 
 	urlStr := fmt.Sprintf("http://%s:%d", ip, port)
 
@@ -189,7 +239,89 @@ func (s *ShareServer) Start(ctx context.Context, folderPath string) (*ServerInfo
 		_ = srv.Serve(ln)
 	}()
 
+	if customPortUnavailable && ctx != nil {
+		// Non-blocking: tell frontend we fell back to a random port.
+		wruntime.EventsEmit(ctx, "toastError", "自定义端口不可用，已切换至随机端口")
+	}
+
 	s.resetWatcher(absRoot)
+	return info, nil
+}
+
+func (s *ShareServer) ApplyCustomPorts(ctx context.Context, input string) (*ServerInfo, error) {
+	input = strings.TrimSpace(input)
+	if input == "" {
+		return nil, errors.New("端口不能为空")
+	}
+	port, err := strconv.Atoi(input)
+	if err != nil || port <= 0 || port > 65535 {
+		return nil, errors.New("无效端口")
+	}
+
+	// Persist the raw input so future starts prefer it.
+	if s.settings != nil {
+		b, _ := json.Marshal(input)
+		_ = s.settings.Set(settingKeyCustomPort, b)
+	}
+
+	s.mu.RLock()
+	running := s.server != nil
+	root := s.sharedRoot
+	currentPort := s.port
+	s.mu.RUnlock()
+	if !running || root == "" {
+		return nil, errors.New("本地服务器未启用")
+	}
+
+	if port == currentPort {
+		return s.GetServerInfo()
+	}
+
+	// Pre-bind to ensure we don't tear down the current server when the port is unavailable.
+	ln, lerr := net.Listen("tcp", fmt.Sprintf(":%d", port))
+	if lerr != nil {
+		return nil, errors.New("端口不可用")
+	}
+
+	ip, err := getLocalIPv4()
+	if err != nil {
+		_ = ln.Close()
+		return nil, err
+	}
+
+	// Stop the old server then start a new one on the chosen port.
+	if err := s.Stop(ctx); err != nil {
+		_ = ln.Close()
+		return nil, err
+	}
+
+	srv := s.buildHTTPServer()
+	urlStr := fmt.Sprintf("http://%s:%d", ip, port)
+
+	s.mu.Lock()
+	if s.server != nil {
+		s.mu.Unlock()
+		_ = ln.Close()
+		return nil, errors.New("服务状态已变化，请重试")
+	}
+	s.sharedRoot = root
+	s.localIP = ip
+	s.port = port
+	s.listener = ln
+	s.server = srv
+	info := &ServerInfo{
+		URL:          urlStr,
+		Port:         port,
+		LocalIP:      ip,
+		SharedFolder: root,
+	}
+	s.mu.Unlock()
+
+	go func() {
+		_ = srv.Serve(ln)
+	}()
+
+	s.resetWatcher(root)
 	return info, nil
 }
 

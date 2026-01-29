@@ -143,6 +143,12 @@ func (a *App) GetServerInfo() (*ServerInfo, error) {
 	return a.shareServer.GetServerInfo()
 }
 
+func (a *App) ApplyCustomPorts(input string) (*ServerInfo, error) {
+	info, err := a.shareServer.ApplyCustomPorts(a.ctx, input)
+	a.emitServerInfoChanged()
+	return info, err
+}
+
 // GetSetting returns a JSON string previously stored under key.
 // If the key does not exist, it returns an empty string.
 func (a *App) GetSetting(key string) (string, error) {

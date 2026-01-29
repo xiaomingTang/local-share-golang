@@ -104,7 +104,18 @@ export const DownloadZipSettingsDialog = NiceModal.create(
     }, [throttledOnSave, value]);
 
     return (
-      <Dialog {...muiDialogV5ReplaceOnClose(modal)} maxWidth="sm" fullWidth>
+      <Dialog
+        {...muiDialogV5ReplaceOnClose(modal)}
+        maxWidth="sm"
+        fullWidth
+        slotProps={{
+          paper: {
+            sx: {
+              backgroundColor: "#01132d",
+            },
+          },
+        }}
+      >
         <DialogTitle>下载设置</DialogTitle>
         <DialogContent>
           <Typography variant="body2" sx={{ mb: 1.5, opacity: 0.85 }}>
