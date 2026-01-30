@@ -22,12 +22,16 @@ import { initShareFileDrop } from "./dragdrop/shareFileDrop";
 import Button from "@mui/material/Button";
 import IconButton from "@mui/material/IconButton";
 
-import FolderIcon from "@mui/icons-material/Folder";
+import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import AdsClickIcon from "@mui/icons-material/AdsClick";
-import OpenInBrowserRoundedIcon from "@mui/icons-material/OpenInBrowserRounded";
 
 import GithubCornerSvg from "./assets/github-corner.svg?react";
-import { checkForUpdate, openFolder, openUrlInBrowser } from "./utils";
+import {
+  checkForUpdate,
+  copyText,
+  openFolder,
+  openUrlInBrowser,
+} from "./utils";
 import { cat } from "@common/error/catch-and-toast";
 import { toError } from "@common/error/utils";
 import { DropOverlay } from "./dragdrop/DropOverlay";
@@ -161,11 +165,10 @@ export default function App() {
       <div className="max-w-215 mx-auto relative p-4">
         <ButtonBase
           title="查看项目"
+          focusRipple
           aria-label="查看项目"
           sx={{ position: "absolute", right: 0, top: 0 }}
-          onClick={() => {
-            openUrlInBrowser(GITHUB_REPO_URL);
-          }}
+          onClick={() => openUrlInBrowser(GITHUB_REPO_URL)}
         >
           <GithubCornerSvg
             className="fill-white/75 text-[#1b2636]"
@@ -203,16 +206,21 @@ export default function App() {
             hidden={!serverUrl}
             v={
               <Stack direction="row" alignItems="center" spacing={1}>
-                <CopyableText text={sharedFolder} />
-                <IconButton
-                  size="small"
-                  aria-label="打开文件夹"
+                <TextButton
                   disabled={!sharedFolder}
                   onClick={() => openFolder(sharedFolder)}
                 >
-                  <FolderIcon
+                  {sharedFolder}
+                </TextButton>
+                <IconButton
+                  disabled={!sharedFolder}
+                  size="small"
+                  aria-label="复制文件夹路径"
+                  onClick={() => copyText(sharedFolder ?? "")}
+                >
+                  <ContentCopyIcon
                     fontSize="inherit"
-                    sx={{ color: sharedFolder ? "#FFD96D" : "inherit" }}
+                    sx={{ color: "inherit" }}
                   />
                 </IconButton>
               </Stack>
@@ -226,14 +234,22 @@ export default function App() {
             hidden={!serverUrl}
             v={
               <Stack direction="row" alignItems="center" spacing={1}>
-                <CopyableText text={serverUrl} />
-                <IconButton
-                  size="small"
-                  aria-label="在浏览器中打开"
+                <TextButton
                   disabled={!serverUrl}
                   onClick={() => openUrlInBrowser(serverUrl)}
                 >
-                  <OpenInBrowserRoundedIcon fontSize="inherit" />
+                  {serverUrl}
+                </TextButton>
+                <IconButton
+                  disabled={!serverUrl}
+                  size="small"
+                  aria-label="复制访问地址"
+                  onClick={() => copyText(serverUrl ?? "")}
+                >
+                  <ContentCopyIcon
+                    fontSize="inherit"
+                    sx={{ color: "inherit" }}
+                  />
                 </IconButton>
               </Stack>
             }
@@ -255,6 +271,8 @@ export default function App() {
             )}
             {!serverUrl && (
               <ButtonBase
+                title="点击选择文件夹开始共享"
+                focusRipple
                 className="size-60"
                 sx={{
                   gap: 1,
