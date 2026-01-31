@@ -25,6 +25,7 @@ import IconButton from "@mui/material/IconButton";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import AdsClickIcon from "@mui/icons-material/AdsClick";
 
+import appIcon from "./assets/appicon.png";
 import GithubCornerSvg from "./assets/github-corner.svg?react";
 import {
   checkForUpdate,
@@ -215,6 +216,7 @@ export default function App() {
                 <IconButton
                   disabled={!sharedFolder}
                   size="small"
+                  title="复制文件夹路径"
                   aria-label="复制文件夹路径"
                   onClick={() => copyText(sharedFolder ?? "")}
                 >
@@ -243,6 +245,7 @@ export default function App() {
                 <IconButton
                   disabled={!serverUrl}
                   size="small"
+                  title="复制访问地址"
                   aria-label="复制访问地址"
                   onClick={() => copyText(serverUrl ?? "")}
                 >
@@ -262,12 +265,23 @@ export default function App() {
             className="mt-4"
           >
             {serverUrl && (
-              <QRCodeCanvas
-                className="bg-[#F3F3F3] rounded-lg p-4"
-                bgColor="#F3F3F3"
-                value={serverUrl}
-                size={240}
-              />
+              <div className="flex justify-center items-center relative">
+                <QRCodeCanvas
+                  className="bg-[#F3F3F3] rounded-lg p-4"
+                  bgColor="#F3F3F3"
+                  value={serverUrl}
+                  size={240}
+                />
+                <img
+                  src={appIcon}
+                  alt="logo"
+                  className={clsx(
+                    "absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2",
+                    "w-10 h-10 p-1 rounded-md bg-[#F3F3F3]",
+                    "pointer-events-none select-none",
+                  )}
+                />
+              </div>
             )}
             {!serverUrl && (
               <ButtonBase
