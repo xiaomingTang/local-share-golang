@@ -21,7 +21,7 @@ function validatePass(input: string): { ok: boolean; helperText: string } {
   if (!/^[0-9A-Za-z]{1,16}$/.test(trimmed)) {
     return { ok: false, helperText: "要求为 1-16 位数字/大小写字母" };
   }
-  return { ok: true, helperText: "" };
+  return { ok: true, helperText: "\u00A0" };
 }
 
 export type AccessPassDialogProps = {
@@ -69,7 +69,7 @@ export const AccessPassDialog = NiceModal.create(
             value={text}
             onChange={(e) => setText(e.target.value)}
             error={Boolean(text) && !v.ok}
-            helperText={v.ok ? "" : v.helperText}
+            helperText={v.ok ? "\u00A0" : v.helperText}
             slotProps={{
               input: {
                 autoComplete: "off",
