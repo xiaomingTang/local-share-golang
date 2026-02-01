@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"crypto/subtle"
 	"embed"
 	"encoding/base64"
@@ -48,6 +49,7 @@ const authRateMaxRequestsPerWindow = 5
 type authTokenEntry struct {
 	ExpiresAt time.Time
 	ClientIP  string
+	PassHash  [32]byte
 }
 
 type rateWindowState struct {
@@ -206,18 +208,24 @@ func (s *ShareServer) authRateGCLocked(now time.Time) {
 	}
 }
 
-func (s *ShareServer) issueAuthTokenLocked(ip string, now time.Time) (string, time.Time, error) {
+func accessPassHash(pass string) [32]byte {
+	// Token invalidation: when access pass changes, the hash changes,
+	// making previously issued tokens invalid.
+	return sha256.Sum256([]byte(pass))
+}
+
+func (s *ShareServer) issueAuthTokenLocked(ip string, passHash [32]byte, now time.Time) (string, time.Time, error) {
 	b := make([]byte, 32)
 	if _, err := rand.Read(b); err != nil {
 		return "", time.Time{}, err
 	}
 	token := base64.RawURLEncoding.EncodeToString(b)
 	exp := now.Add(authTokenTTL)
-	s.authTokens[token] = authTokenEntry{ExpiresAt: exp, ClientIP: ip}
+	s.authTokens[token] = authTokenEntry{ExpiresAt: exp, ClientIP: ip, PassHash: passHash}
 	return token, exp, nil
 }
 
-func (s *ShareServer) validateAndMaybeRenewToken(token string, ip string, now time.Time) bool {
+func (s *ShareServer) validateAndMaybeRenewToken(token string, ip string, passHash [32]byte, now time.Time) bool {
 	if token == "" {
 		return false
 	}
@@ -229,6 +237,10 @@ func (s *ShareServer) validateAndMaybeRenewToken(token string, ip string, now ti
 		return false
 	}
 	if now.After(entry.ExpiresAt) {
+		delete(s.authTokens, token)
+		return false
+	}
+	if subtle.ConstantTimeCompare(entry.PassHash[:], passHash[:]) != 1 {
 		delete(s.authTokens, token)
 		return false
 	}
@@ -259,7 +271,7 @@ func (s *ShareServer) requireAuth(w http.ResponseWriter, r *http.Request) bool {
 		token = strings.TrimSpace(r.URL.Query().Get(queryShareToken))
 	}
 	ip := getClientIP(r)
-	if !s.validateAndMaybeRenewToken(token, ip, time.Now()) {
+	if !s.validateAndMaybeRenewToken(token, ip, accessPassHash(pass), time.Now()) {
 		writeJSON(w, http.StatusUnauthorized, map[string]string{
 			"error": "鉴权失败",
 			"code":  "AUTH_REQUIRED",
@@ -339,8 +351,10 @@ func (s *ShareServer) handleAuth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	passHash := accessPassHash(passSetting)
+
 	s.authMu.Lock()
-	token, exp, terr := s.issueAuthTokenLocked(ip, now)
+	token, exp, terr := s.issueAuthTokenLocked(ip, passHash, now)
 	s.authSweepLocked(now)
 	s.authMu.Unlock()
 	if terr != nil {
