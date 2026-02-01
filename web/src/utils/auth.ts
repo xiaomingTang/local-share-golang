@@ -84,6 +84,7 @@ export async function ensureShareToken(): Promise<string> {
       } catch (e: any) {
         if (e?.status === 401) {
           lastMsg = e?.message || "访问口令错误，请重试。";
+          setWebToken("");
           continue;
         }
         throw e;

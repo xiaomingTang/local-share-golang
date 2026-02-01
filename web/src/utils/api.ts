@@ -1,4 +1,4 @@
-import { getWebToken } from "@common/storage/web-token";
+import { getWebToken, setWebToken } from "@common/storage/web-token";
 
 import type { DeleteResponse, FilesResponse } from "../types";
 import { ensureShareToken } from "./auth";
@@ -70,6 +70,7 @@ export async function uploadFilesWithProgress(opts: {
     await uploadFilesWithProgressXHR({ formData, onProgress });
   } catch (e: any) {
     if (e?.status === 401) {
+      setWebToken("");
       await ensureShareToken();
       await uploadFilesWithProgressXHR({ formData, onProgress });
       return;

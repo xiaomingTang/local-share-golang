@@ -1,6 +1,6 @@
 import ky, { HTTPError, TimeoutError, type Options } from "ky";
 
-import { getWebToken } from "@common/storage/web-token";
+import { getWebToken, setWebToken } from "@common/storage/web-token";
 import { ensureShareToken } from "./auth";
 
 export class ApiError extends Error {
@@ -132,6 +132,7 @@ export const http = ky.create({
           !alreadyRetried &&
           !isAuthEndpoint(String(request.url))
         ) {
+          setWebToken("");
           await ensureShareToken();
 
           const retryHeaders = new Headers(
