@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { Setter } from "./TypedStorage";
+import { getWebToken } from "./web-token";
 
 function hasWailsSettingsBridge(): boolean {
   const w = globalThis as any;
@@ -26,10 +27,13 @@ async function getRemoteSetting<T>(key: string): Promise<T | undefined> {
     return JSON.parse(raw) as T;
   }
 
+  const token = getWebToken();
+
   const res = await fetch(`/api/settings/${encodeURIComponent(key)}`, {
     method: "GET",
     headers: {
       Accept: "application/json",
+      ...(token ? { "X-Share-Token": token } : {}),
     },
   });
 
@@ -56,11 +60,14 @@ async function setRemoteSetting<T>(
     return;
   }
 
+  const token = getWebToken();
+
   const res = await fetch(`/api/settings/${encodeURIComponent(key)}`, {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
       Accept: "application/json",
+      ...(token ? { "X-Share-Token": token } : {}),
     },
     body: JSON.stringify({ value }),
   });

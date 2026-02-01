@@ -27,6 +27,7 @@ import { useSyncedPath } from "./hooks/useSyncedPath";
 import { useRemoteSetting } from "@common/storage";
 import NiceModal from "@ebay/nice-modal-react";
 import { cat } from "@common/error/catch-and-toast";
+import { ensureShareToken, withTokenQuery } from "./utils/auth";
 
 function buildFilePath(currentPath: string, fileName: string) {
   return currentPath ? `${currentPath}/${fileName}` : fileName;
@@ -90,9 +91,14 @@ export default function App() {
   }
 
   function downloadFile(fileName: string) {
-    const filePath = buildFilePath(currentPath, fileName);
-    const downloadUrl = `/api/download?path=${encodeURIComponent(filePath)}`;
-    download(downloadUrl, fileName);
+    void (async () => {
+      const filePath = buildFilePath(currentPath, fileName);
+      await ensureShareToken();
+      const downloadUrl = withTokenQuery(
+        `/api/download?path=${encodeURIComponent(filePath)}`,
+      );
+      download(downloadUrl, fileName);
+    })();
   }
 
   async function downloadSelected() {
@@ -110,7 +116,10 @@ export default function App() {
       const relPath = paths[0];
       const fileName =
         (relPath || "").split("/").filter(Boolean).pop() || "download";
-      const downloadUrl = `/api/download?path=${encodeURIComponent(relPath)}`;
+      await ensureShareToken();
+      const downloadUrl = withTokenQuery(
+        `/api/download?path=${encodeURIComponent(relPath)}`,
+      );
       download(downloadUrl, fileName);
       return;
     }

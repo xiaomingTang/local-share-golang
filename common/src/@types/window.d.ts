@@ -1,7 +1,7 @@
 declare global {
   interface Error {
     cause?: Error;
-    code?: number;
+    code?: number | string;
     message: string;
   }
 

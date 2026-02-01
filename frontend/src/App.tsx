@@ -41,6 +41,7 @@ import clsx from "clsx";
 import { useRemoteSetting } from "@common/storage";
 import { useEventsOn } from "./hooks/useEventsOn";
 import { CustomPortDialog } from "./components/CustomPortDialog";
+import { AccessPassDialog } from "./components/AccessPassDialog";
 import { TextButton } from "./components/TextButton";
 import { KV } from "./components/KV";
 import { CopyableText } from "./components/CopyableText";
@@ -50,6 +51,7 @@ const GITHUB_REPO_URL =
 
 const UPDATE_CHECK_CLICK_KEY = "local-share:update-check-click" as const;
 const CUSTOM_PORT_KEY = "local-share:custom-port" as const;
+const ACCESS_PASS_KEY = "local-share:access-pass" as const;
 const UPDATE_CHECK_TIP_THRESHOLD = 10;
 const UPDATE_CHECK_CLICK_WINDOW_MS = 60 * 60 * 1000; // 1 hour
 
@@ -114,8 +116,10 @@ export default function App() {
     "",
   );
 
-  const [isStartingSharing, withStartingSharing] = useLoading();
-  const [isApplyingPorts, withApplyingPorts] = useLoading();
+  const [accessPassText, setAccessPassText] = useRemoteSetting<string>(
+    ACCESS_PASS_KEY,
+    "",
+  );
 
   const { data: serverInfo, mutate: mutateServerInfo } = useSWR(
     "GetServerInfo",
@@ -126,23 +130,19 @@ export default function App() {
 
   const { data: appVersion } = useSWR("GetVersion", () => GetVersion());
 
-  const tryToShare = withStartingSharing(
-    cat(async () => {
-      const dir = await PickFolder();
-      if (!dir) return;
-      await StartSharing(dir);
-      await mutateServerInfo();
-    }),
-  );
+  const tryToShare = cat(async () => {
+    const dir = await PickFolder();
+    if (!dir) return;
+    await StartSharing(dir);
+    await mutateServerInfo();
+  });
 
   useEffect(() => {
-    const tryStartSharingFromDroppedPaths = withStartingSharing(
-      cat(async (paths: string[]) => {
-        await sharingFromDroppedPaths(paths);
-        await mutateServerInfo();
-        toast.success("已开始共享");
-      }),
-    );
+    const tryStartSharingFromDroppedPaths = cat(async (paths: string[]) => {
+      await sharingFromDroppedPaths(paths);
+      await mutateServerInfo();
+      toast.success("已开始共享");
+    });
     const cleanup = initShareFileDrop({
       setDropOverlayActive,
       tryStartSharingFromDroppedPaths,
@@ -156,10 +156,11 @@ export default function App() {
     if (text) toast.error(text);
   });
 
-  const applyCustomPortText = withApplyingPorts(async (text: string) => {
+  // 不能用 cat 包裹，错误需要抛出，业务中要用
+  const applyCustomPortText = async (text: string) => {
     await ApplyCustomPorts(String(text).trim());
     await mutateServerInfo();
-  });
+  };
 
   return (
     <>
@@ -350,6 +351,25 @@ export default function App() {
             }
             v={
               <Typography color="action.disabled">{customPortText}</Typography>
+            }
+          />
+
+          <KV
+            sx={{ mt: 1, mb: 1 }}
+            k={
+              <TextButton
+                onClick={() => {
+                  void NiceModal.show(AccessPassDialog, {
+                    value: accessPassText,
+                    onSave: (v) => setAccessPassText(v),
+                  });
+                }}
+              >
+                访问口令
+              </TextButton>
+            }
+            v={
+              <Typography color="action.disabled">{accessPassText}</Typography>
             }
           />
 

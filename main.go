@@ -79,7 +79,7 @@ func main() {
 	err = wails.Run(&options.App{
 		Title:  "LocalShare",
 		Width:  864,
-		Height: 656,
+		Height: 680,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},

@@ -1,5 +1,5 @@
 export interface PlainError {
-  code: number;
+  code: number | string;
   message: string;
 }
 

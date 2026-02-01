@@ -1,10 +1,28 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { withTokenQuery } from "../utils/auth";
+
+function useTokenTick() {
+  const [tokenTick, setTokenTick] = useState(0);
+
+  useEffect(() => {
+    function onTokenChanged() {
+      setTokenTick((v) => v + 1);
+    }
+    window.addEventListener("shareTokenChanged", onTokenChanged);
+    return () => {
+      window.removeEventListener("shareTokenChanged", onTokenChanged);
+    };
+  }, []);
+
+  return tokenTick;
+}
 
 export function useSseDirsRefresh(params: {
   currentPath: string;
   onRefresh: () => void;
 }) {
   const { currentPath, onRefresh } = params;
+  const tokenTick = useTokenTick();
 
   const refreshTimer = useRef<number | null>(null);
   const esRef = useRef<EventSource | null>(null);
@@ -24,7 +42,7 @@ export function useSseDirsRefresh(params: {
   useEffect(() => {
     if (typeof window.EventSource === "undefined") return;
     try {
-      const es = new EventSource("/api/events");
+      const es = new EventSource(withTokenQuery("/api/events"));
       es.addEventListener("dirsChanged", (ev: MessageEvent) => {
         try {
           const payload = JSON.parse(String(ev.data || "{}")) as {
@@ -42,7 +60,8 @@ export function useSseDirsRefresh(params: {
     } catch {
       return;
     }
-  }, [currentPath]);
+    // When token changes (after auth), reconnect SSE.
+  }, [currentPath, tokenTick]);
 
   useEffect(() => {
     return () => {
