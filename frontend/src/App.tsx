@@ -121,9 +121,6 @@ export default function App() {
     "",
   );
 
-  const [isStartingSharing, withStartingSharing] = useLoading();
-  const [isApplyingPorts, withApplyingPorts] = useLoading();
-
   const { data: serverInfo, mutate: mutateServerInfo } = useSWR(
     "GetServerInfo",
     () => GetServerInfo(),
@@ -133,23 +130,19 @@ export default function App() {
 
   const { data: appVersion } = useSWR("GetVersion", () => GetVersion());
 
-  const tryToShare = withStartingSharing(
-    cat(async () => {
-      const dir = await PickFolder();
-      if (!dir) return;
-      await StartSharing(dir);
-      await mutateServerInfo();
-    }),
-  );
+  const tryToShare = cat(async () => {
+    const dir = await PickFolder();
+    if (!dir) return;
+    await StartSharing(dir);
+    await mutateServerInfo();
+  });
 
   useEffect(() => {
-    const tryStartSharingFromDroppedPaths = withStartingSharing(
-      cat(async (paths: string[]) => {
-        await sharingFromDroppedPaths(paths);
-        await mutateServerInfo();
-        toast.success("已开始共享");
-      }),
-    );
+    const tryStartSharingFromDroppedPaths = cat(async (paths: string[]) => {
+      await sharingFromDroppedPaths(paths);
+      await mutateServerInfo();
+      toast.success("已开始共享");
+    });
     const cleanup = initShareFileDrop({
       setDropOverlayActive,
       tryStartSharingFromDroppedPaths,
@@ -163,10 +156,11 @@ export default function App() {
     if (text) toast.error(text);
   });
 
-  const applyCustomPortText = withApplyingPorts(async (text: string) => {
+  // 不能用 cat 包裹，错误需要抛出，业务中要用
+  const applyCustomPortText = async (text: string) => {
     await ApplyCustomPorts(String(text).trim());
     await mutateServerInfo();
-  });
+  };
 
   return (
     <>
