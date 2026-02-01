@@ -65,6 +65,14 @@ function buildFaqJsonLd() {
       },
       {
         "@type": "Question",
+        name: "支持“访问口令”吗？怎么用？",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "支持。你可以在客户端里设置访问口令，启用后访问共享网页会先提示输入口令，通过后会获得一个临时 token（会自动续期），后续操作无需重复输入。口令规则：1–16 位，仅支持字母/数字。",
+        },
+      },
+      {
+        "@type": "Question",
         name: "需要管理员权限吗？",
         acceptedAnswer: {
           "@type": "Answer",

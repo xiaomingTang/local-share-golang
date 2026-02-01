@@ -171,6 +171,20 @@
             <div class="card__head">
               <span class="card__icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M7 11V8a5 5 0 0 1 10 0v3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+                  <path d="M6 11h12v9a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2v-9Z" stroke="currentColor" stroke-width="1.7"
+                    stroke-linejoin="round" />
+                  <path d="M12 15v3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+                </svg>
+              </span>
+              <h3>访问口令保护（可选）</h3>
+            </div>
+            <p>可在客户端设置访问口令：打开网页时需先输入口令，通过后会自动记住（临时 token），避免同一 Wi‑Fi 下被随意访问。</p>
+          </article>
+          <article class="card">
+            <div class="card__head">
+              <span class="card__icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path d="M7 3h7l3 3v15a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" stroke="currentColor"
                     stroke-width="1.7" />
                   <path d="M14 3v4a2 2 0 0 0 2 2h4" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" />
@@ -299,6 +313,14 @@
             <div class="faq__body">
               是纯绿色免安装：解压即用。删除程序文件夹即可卸载。
               <p class="muted">唯一可能的系统改动来自“可选的 Windows 右键菜单”。不开启就不会写入注册表。</p>
+            </div>
+          </details>
+
+          <details>
+            <summary>支持“访问口令”吗？怎么用？</summary>
+            <div class="faq__body">
+              支持。你可以在客户端里设置“访问口令”，启用后：访问共享网页会先提示输入口令，通过后会获得一个临时 token（会自动续期），后续操作无需重复输入。
+              <p class="muted">口令规则：1–16 位，仅支持字母/数字。提示：访问口令是局域网内的轻量保护，仍建议在可信网络中使用。</p>
             </div>
           </details>
 
