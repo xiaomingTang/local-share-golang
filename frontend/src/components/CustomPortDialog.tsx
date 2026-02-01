@@ -27,6 +27,7 @@ import { main } from "wailsjs/go/models";
 import { useThrottle } from "@common/utils/useThrottle";
 import { useMountedRef } from "@common/utils/useMounted";
 import { cat } from "@common/error/catch-and-toast";
+import { autoFocus } from "@common/utils/autoFocus";
 
 function parsePortInputText(input: string): {
   port: number | null;
@@ -77,10 +78,6 @@ export const CustomPortDialog = NiceModal.create(
         throttledOnSave(text);
       }
     }, [throttledOnSave, text]);
-
-    const autoFocus = useCallback((elem: HTMLInputElement) => {
-      elem?.focus();
-    }, []);
 
     return (
       <Dialog
