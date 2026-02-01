@@ -1,16 +1,15 @@
 import { getWebToken } from "@common/storage/web-token";
+
 import type { DeleteResponse, FilesResponse } from "../types";
-import { authFetch, ensureShareToken } from "./auth";
+import { ensureShareToken } from "./auth";
+import { http } from "./http";
 
 export async function fetchFiles(path: string) {
-  const resp = await authFetch(
-    `/api/files?path=${encodeURIComponent(path || "")}`,
-  );
-  const data = (await resp.json().catch(() => null)) as any;
-  if (!resp.ok) {
-    throw new Error(data?.error || "加载文件失败");
-  }
-  return data as FilesResponse;
+  return http
+    .get("/api/files", {
+      searchParams: { path: path || "" },
+    })
+    .json<FilesResponse>();
 }
 
 export async function downloadZip(paths: string[]) {
@@ -22,19 +21,9 @@ export async function downloadZipWithIgnore(opts: {
   ignore?: string[];
 }) {
   const { paths, ignore } = opts;
-  const resp = await authFetch("/api/download-zip", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ paths, ignore: ignore || [] }),
+  const resp = await http.post("/api/download-zip", {
+    json: { paths, ignore: ignore || [] },
   });
-
-  const ct = (resp.headers.get("content-type") || "").toLowerCase();
-  if (!resp.ok) {
-    const msg = ct.includes("application/json")
-      ? (await resp.json().catch(() => null))?.error
-      : await resp.text().catch(() => "");
-    throw new Error(msg || "批量下载失败");
-  }
 
   const blob = await resp.blob();
   const cd = resp.headers.get("content-disposition") || "";
@@ -44,23 +33,17 @@ export async function downloadZipWithIgnore(opts: {
 }
 
 export async function deletePaths(paths: string[]) {
-  const resp = await authFetch("/api/delete", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ paths }),
-  });
-  const payload = (await resp.json().catch(() => null)) as any;
-  if (!resp.ok) {
-    throw new Error(payload?.error || "批量删除失败");
-  }
-  return payload as DeleteResponse;
+  return http
+    .post("/api/delete", {
+      json: { paths },
+    })
+    .json<DeleteResponse>();
 }
 
 export async function fetchPreview(filePath: string) {
-  const resp = await authFetch(
-    `/api/preview?path=${encodeURIComponent(filePath)}`,
-  );
-  if (!resp.ok) throw new Error("预览失败");
+  const resp = await http.get("/api/preview", {
+    searchParams: { path: filePath },
+  });
 
   const contentType = resp.headers.get("content-type") || "";
   if ((contentType || "").toLowerCase().startsWith("image/")) {
@@ -135,6 +118,8 @@ function uploadFilesWithProgressXHR(opts: {
     });
 
     xhr.open("POST", "/api/upload");
+    // XHR path keeps manual token injection (upload progress).
+    // Token is intentionally stored as a header to avoid leaking into URLs.
     const token = getWebToken();
     if (token) {
       try {

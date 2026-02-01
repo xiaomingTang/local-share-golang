@@ -99,34 +99,3 @@ export async function ensureShareToken(): Promise<string> {
     inflightEnsure = null;
   }
 }
-
-function buildHeaders(init?: RequestInit): Headers {
-  const h = new Headers(init?.headers || undefined);
-  const token = getWebToken();
-  if (token) h.set("X-Share-Token", token);
-  return h;
-}
-
-export async function authFetch(
-  input: RequestInfo | URL,
-  init?: RequestInit,
-  opts?: { retryOnAuth?: boolean },
-): Promise<Response> {
-  const retryOnAuth = opts?.retryOnAuth !== false;
-
-  console.log("authFetch", input);
-  const first = await fetch(input, {
-    ...init,
-    headers: buildHeaders(init),
-  });
-  console.log(first);
-
-  if (first.status !== 401 || !retryOnAuth) return first;
-
-  await ensureShareToken();
-
-  return fetch(input, {
-    ...init,
-    headers: buildHeaders(init),
-  });
-}
