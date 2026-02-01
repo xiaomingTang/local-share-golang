@@ -4,7 +4,10 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
+	"crypto/rand"
+	"crypto/subtle"
 	"embed"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -31,6 +34,26 @@ import (
 var webAssets embed.FS
 
 const settingKeyCustomPort = "local-share:custom-port"
+const settingKeyAccessPass = "local-share:access-pass"
+
+const headerShareToken = "X-Share-Token"
+const queryShareToken = "token"
+
+const authTokenTTL = 10 * time.Minute
+const authTokenRenewBefore = 2 * time.Minute
+
+const authRateWindow = 10 * time.Second
+const authRateMaxRequestsPerWindow = 5
+
+type authTokenEntry struct {
+	ExpiresAt time.Time
+	ClientIP  string
+}
+
+type rateWindowState struct {
+	WindowStart time.Time
+	Count       int
+}
 
 type directoryItem struct {
 	Name      string  `json:"name"`
@@ -61,13 +84,274 @@ type ShareServer struct {
 
 	events *sseHub
 
+	authMu         sync.Mutex
+	authTokens     map[string]authTokenEntry
+	authRateByIP   map[string]rateWindowState
+	authLastSweep  time.Time
+	authLastRateGC time.Time
+
 	watchMu   sync.Mutex
 	watcher   *directoryWatcher
 	watchRoot string
 }
 
 func NewShareServer() *ShareServer {
-	return &ShareServer{events: newSSEHub(), settings: NewSettingsStore()}
+	return &ShareServer{
+		events:       newSSEHub(),
+		settings:     NewSettingsStore(),
+		authTokens:   map[string]authTokenEntry{},
+		authRateByIP: map[string]rateWindowState{},
+	}
+}
+
+func isValidAccessPass(pass string) bool {
+	if pass == "" {
+		return true
+	}
+	if len(pass) < 1 || len(pass) > 16 {
+		return false
+	}
+	for i := 0; i < len(pass); i++ {
+		c := pass[i]
+		isDigit := c >= '0' && c <= '9'
+		isLower := c >= 'a' && c <= 'z'
+		isUpper := c >= 'A' && c <= 'Z'
+		if !isDigit && !isLower && !isUpper {
+			return false
+		}
+	}
+	return true
+}
+
+func (s *ShareServer) getAccessPassFromSettings() (string, bool, error) {
+	if s.settings == nil {
+		return "", false, nil
+	}
+	raw, ok, err := s.settings.Get(settingKeyAccessPass)
+	if err != nil {
+		return "", false, err
+	}
+	if !ok || len(raw) == 0 {
+		return "", false, nil
+	}
+	var pass string
+	if err := json.Unmarshal(raw, &pass); err != nil {
+		return "", false, err
+	}
+	pass = strings.TrimSpace(pass)
+	if pass == "" {
+		return "", false, nil
+	}
+	if !isValidAccessPass(pass) {
+		return "", false, errors.New("无效访问口令")
+	}
+	return pass, true, nil
+}
+
+func getClientIP(r *http.Request) string {
+	if r == nil {
+		return ""
+	}
+	addr := strings.TrimSpace(r.RemoteAddr)
+	if addr == "" {
+		return ""
+	}
+	host, _, err := net.SplitHostPort(addr)
+	if err == nil && host != "" {
+		return host
+	}
+	return addr
+}
+
+func (s *ShareServer) authRateAllowedLocked(ip string, now time.Time) bool {
+	st := s.authRateByIP[ip]
+	if st.WindowStart.IsZero() || now.Sub(st.WindowStart) >= authRateWindow {
+		st.WindowStart = now
+		st.Count = 0
+	}
+	if st.Count >= authRateMaxRequestsPerWindow {
+		s.authRateByIP[ip] = st
+		return false
+	}
+	st.Count++
+	s.authRateByIP[ip] = st
+	return true
+}
+
+func (s *ShareServer) authSweepLocked(now time.Time) {
+	if now.Sub(s.authLastSweep) < 60*time.Second {
+		return
+	}
+	s.authLastSweep = now
+	for k, v := range s.authTokens {
+		if now.After(v.ExpiresAt) {
+			delete(s.authTokens, k)
+		}
+	}
+}
+
+func (s *ShareServer) authRateGCLocked(now time.Time) {
+	if now.Sub(s.authLastRateGC) < 60*time.Second {
+		return
+	}
+	s.authLastRateGC = now
+	for ip, st := range s.authRateByIP {
+		if st.WindowStart.IsZero() {
+			delete(s.authRateByIP, ip)
+			continue
+		}
+		if now.Sub(st.WindowStart) > 5*authRateWindow {
+			delete(s.authRateByIP, ip)
+		}
+	}
+}
+
+func (s *ShareServer) issueAuthTokenLocked(ip string, now time.Time) (string, time.Time, error) {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return "", time.Time{}, err
+	}
+	token := base64.RawURLEncoding.EncodeToString(b)
+	exp := now.Add(authTokenTTL)
+	s.authTokens[token] = authTokenEntry{ExpiresAt: exp, ClientIP: ip}
+	return token, exp, nil
+}
+
+func (s *ShareServer) validateAndMaybeRenewToken(token string, ip string, now time.Time) bool {
+	if token == "" {
+		return false
+	}
+	s.authMu.Lock()
+	defer s.authMu.Unlock()
+	s.authSweepLocked(now)
+	entry, ok := s.authTokens[token]
+	if !ok {
+		return false
+	}
+	if now.After(entry.ExpiresAt) {
+		delete(s.authTokens, token)
+		return false
+	}
+	// Optional binding: keep it strict (same IP) to reduce replay across IPs.
+	if entry.ClientIP != "" && ip != "" && entry.ClientIP != ip {
+		return false
+	}
+	if entry.ExpiresAt.Sub(now) <= authTokenRenewBefore {
+		entry.ExpiresAt = now.Add(authTokenTTL)
+		s.authTokens[token] = entry
+	}
+	return true
+}
+
+func (s *ShareServer) requireAuth(w http.ResponseWriter, r *http.Request) bool {
+	pass, enabled, err := s.getAccessPassFromSettings()
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "访问口令配置异常"})
+		return false
+	}
+	if !enabled || pass == "" {
+		return true
+	}
+
+	// Prefer header token; fall back to query for EventSource / download navigation.
+	token := strings.TrimSpace(r.Header.Get(headerShareToken))
+	if token == "" {
+		token = strings.TrimSpace(r.URL.Query().Get(queryShareToken))
+	}
+	ip := getClientIP(r)
+	if !s.validateAndMaybeRenewToken(token, ip, time.Now()) {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{
+			"error": "鉴权失败",
+			"code":  "AUTH_REQUIRED",
+		})
+		return false
+	}
+	return true
+}
+
+func (s *ShareServer) handleAuth(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.Header().Set("Allow", "POST")
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
+	// If pass isn't enabled, return empty token.
+	passSetting, enabled, err := s.getAccessPassFromSettings()
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "访问口令配置异常"})
+		return
+	}
+	if !enabled || passSetting == "" {
+		writeJSON(w, http.StatusOK, map[string]any{"token": ""})
+		return
+	}
+
+	ip := getClientIP(r)
+	now := time.Now()
+
+	s.authMu.Lock()
+	allowed := s.authRateAllowedLocked(ip, now)
+	s.authRateGCLocked(now)
+	s.authMu.Unlock()
+	if !allowed {
+		w.Header().Set("Retry-After", fmt.Sprintf("%d", int(authRateWindow.Seconds())))
+		writeJSON(w, http.StatusTooManyRequests, map[string]any{
+			"error":      "请求过于频繁，请稍后重试",
+			"code":       "AUTH_RATE_LIMITED",
+			"retryAfter": int(authRateWindow.Seconds()),
+		})
+		return
+	}
+
+	var req struct {
+		Pass string `json:"pass"`
+	}
+	dec := json.NewDecoder(r.Body)
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid json"})
+		return
+	}
+	input := strings.TrimSpace(req.Pass)
+	if input == "" {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{
+			"error": "需要访问口令",
+			"code":  "AUTH_REQUIRED",
+		})
+		return
+	}
+	if !isValidAccessPass(input) {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "访问口令格式错误"})
+		return
+	}
+
+	// Constant-time compare (only meaningful when same length, but still good practice).
+	ok := false
+	if len(input) == len(passSetting) {
+		ok = subtle.ConstantTimeCompare([]byte(input), []byte(passSetting)) == 1
+	}
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{
+			"error": "访问口令错误",
+			"code":  "AUTH_INVALID",
+		})
+		return
+	}
+
+	s.authMu.Lock()
+	token, exp, terr := s.issueAuthTokenLocked(ip, now)
+	s.authSweepLocked(now)
+	s.authMu.Unlock()
+	if terr != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "生成 token 失败"})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"token":     token,
+		"expiresIn": int(exp.Sub(now).Seconds()),
+	})
 }
 
 func (s *ShareServer) IsRunning() bool {
@@ -429,6 +713,7 @@ func (s *ShareServer) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/events", s.handleEvents)
 	mux.HandleFunc("/api/settings/", s.handleSettings)
 	mux.HandleFunc("/api/settings", s.handleSettings)
+	mux.HandleFunc("/api/auth", s.handleAuth)
 	mux.HandleFunc("/api/download", s.handleDownload)
 	mux.HandleFunc("/api/download-zip", s.handleDownloadZip)
 	mux.HandleFunc("/api/preview", s.handlePreview)
@@ -437,6 +722,9 @@ func (s *ShareServer) registerRoutes(mux *http.ServeMux) {
 }
 
 func (s *ShareServer) handleEvents(w http.ResponseWriter, r *http.Request) {
+	if !s.requireAuth(w, r) {
+		return
+	}
 	if s.events == nil {
 		w.WriteHeader(http.StatusServiceUnavailable)
 		return
@@ -457,8 +745,16 @@ func (s *ShareServer) handleSettings(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "missing key"})
 		return
 	}
+	// Do not allow reading/writing access pass over HTTP.
+	if key == settingKeyAccessPass {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "not found"})
+		return
+	}
 	if !isValidSettingKey(key) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid key"})
+		return
+	}
+	if !s.requireAuth(w, r) {
 		return
 	}
 
@@ -535,6 +831,9 @@ func (s *ShareServer) handleFiles(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "服务未启动"})
 		return
 	}
+	if !s.requireAuth(w, r) {
+		return
+	}
 
 	subPath := r.URL.Query().Get("path")
 	fullPath, ok := safeJoin(root, subPath)
@@ -590,6 +889,9 @@ func (s *ShareServer) handleDownload(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "服务未启动"})
 		return
 	}
+	if !s.requireAuth(w, r) {
+		return
+	}
 
 	filePath := r.URL.Query().Get("path")
 	if strings.TrimSpace(filePath) == "" {
@@ -635,6 +937,9 @@ func (s *ShareServer) handleDownloadZip(w http.ResponseWriter, r *http.Request) 
 	s.mu.RUnlock()
 	if root == "" {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "服务未启动"})
+		return
+	}
+	if !s.requireAuth(w, r) {
 		return
 	}
 
@@ -969,6 +1274,9 @@ func (s *ShareServer) handlePreview(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "服务未启动"})
 		return
 	}
+	if !s.requireAuth(w, r) {
+		return
+	}
 
 	filePath := r.URL.Query().Get("path")
 	if strings.TrimSpace(filePath) == "" {
@@ -1047,6 +1355,9 @@ func (s *ShareServer) handleUpload(w http.ResponseWriter, r *http.Request) {
 	s.mu.RUnlock()
 	if root == "" {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "服务未启动"})
+		return
+	}
+	if !s.requireAuth(w, r) {
 		return
 	}
 
@@ -1135,6 +1446,9 @@ func (s *ShareServer) handleDelete(w http.ResponseWriter, r *http.Request) {
 	s.mu.RUnlock()
 	if root == "" {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "服务未启动"})
+		return
+	}
+	if !s.requireAuth(w, r) {
 		return
 	}
 
