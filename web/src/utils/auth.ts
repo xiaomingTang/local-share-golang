@@ -8,7 +8,7 @@ let inflightEnsure: Promise<string> | null = null;
 
 // When user explicitly dismisses the access-pass dialog, avoid immediately
 // re-prompting due to subsequent background requests (e.g. SWR/StrictMode).
-const AUTH_DENY_COOLDOWN_MS = 15_000;
+const AUTH_DENY_COOLDOWN_MS = 3_000;
 let authDeniedUntil = 0;
 
 function markAuthDeniedCooldown() {
