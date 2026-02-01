@@ -1,4 +1,5 @@
 import {
+  Box,
   Button,
   Dialog,
   DialogActions,
@@ -11,9 +12,10 @@ import {
 import NiceModal, { useModal } from "@ebay/nice-modal-react";
 
 import { muiDialogV5ReplaceOnClose } from "@common/utils/muiDialogV5ReplaceOnClose";
-import { SilentError } from "@common/error/silent-error";
+import { TextButton } from "./TextButton";
 
-import { useMemo, useState } from "react";
+import { SubmitEvent, useMemo, useState } from "react";
+import { cat } from "@common/error/catch-and-toast";
 
 function validatePass(input: string): { ok: boolean; helperText: string } {
   const trimmed = (input || "").trim();
@@ -25,8 +27,7 @@ function validatePass(input: string): { ok: boolean; helperText: string } {
 }
 
 export type AccessPassDialogProps = {
-  title?: string;
-  description?: string;
+  onSave?: (pass: string) => Promise<void>;
 };
 
 export const AccessPassDialog = NiceModal.create(
@@ -35,7 +36,6 @@ export const AccessPassDialog = NiceModal.create(
     const [text, setText] = useState("");
 
     const v = useMemo(() => validatePass(text), [text]);
-    const disabled = !v.ok;
 
     return (
       <Dialog
@@ -50,56 +50,47 @@ export const AccessPassDialog = NiceModal.create(
           },
         }}
       >
-        <DialogTitle>{props.title || "访问口令"}</DialogTitle>
+        <DialogTitle>请输入访问口令后继续</DialogTitle>
         <DialogContent>
-          <Typography
-            sx={{ pt: 0.5, pb: 1 }}
-            variant="body2"
-            color="text.secondary"
-          >
-            {props.description ||
-              "该共享已启用访问口令。请输入口令后继续。口令不会被保存。"}
-          </Typography>
-          <TextField
-            autoFocus
-            size="small"
-            fullWidth
-            label="访问口令"
-            placeholder="如：a8"
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            error={Boolean(text) && !v.ok}
-            helperText={v.ok ? "\u00A0" : v.helperText}
-            slotProps={{
-              input: {
-                autoComplete: "off",
-              },
-            }}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button
-            onClick={() => {
-              modal.reject(new SilentError("操作已取消"));
-              void modal.hide();
-            }}
-            variant="outlined"
-          >
-            取消
-          </Button>
-          <Button
-            variant="contained"
-            disabled={disabled}
-            onClick={() => {
+          <Box
+            sx={{ pt: 1 }}
+            component="form"
+            onSubmit={cat(async (e: SubmitEvent) => {
+              e.preventDefault();
               const pass = text.trim();
               if (!/^[0-9A-Za-z]{1,16}$/.test(pass)) return;
+              await props.onSave?.(pass);
               modal.resolve(pass);
               void modal.hide();
-            }}
+            })}
           >
-            确定
-          </Button>
-        </DialogActions>
+            <TextField
+              autoFocus
+              size="small"
+              fullWidth
+              label="访问口令"
+              placeholder="如：a8"
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              error={Boolean(text) && !v.ok}
+              helperText={v.ok ? "\u00A0" : v.helperText}
+              slotProps={{
+                input: {
+                  autoComplete: "off",
+                  endAdornment: (
+                    <TextButton
+                      type="submit"
+                      disabled={!text}
+                      sx={{ fontSize: 14 }}
+                    >
+                      确定
+                    </TextButton>
+                  ),
+                },
+              }}
+            />
+          </Box>
+        </DialogContent>
       </Dialog>
     );
   },

@@ -2,8 +2,22 @@ import NiceModal from "@ebay/nice-modal-react";
 
 import { AccessPassDialog } from "../components/AccessPassDialog";
 import { getWebToken, setWebToken } from "@common/storage/web-token";
+import { SilentError } from "@common/error/silent-error";
 
 let inflightEnsure: Promise<string> | null = null;
+
+// When user explicitly dismisses the access-pass dialog, avoid immediately
+// re-prompting due to subsequent background requests (e.g. SWR/StrictMode).
+const AUTH_DENY_COOLDOWN_MS = 15_000;
+let authDeniedUntil = 0;
+
+function markAuthDeniedCooldown() {
+  authDeniedUntil = Date.now() + AUTH_DENY_COOLDOWN_MS;
+}
+
+function clearAuthDeniedCooldown() {
+  authDeniedUntil = 0;
+}
 
 export function withTokenQuery(url: string): string {
   const token = getWebToken();
@@ -53,45 +67,39 @@ async function requestAuthToken(pass: string): Promise<string> {
 export async function ensureShareToken(): Promise<string> {
   const token = getWebToken();
   if (token) return token;
+  if (Date.now() < authDeniedUntil) {
+    throw new SilentError("未授权访问");
+  }
   if (inflightEnsure) return inflightEnsure;
 
   inflightEnsure = (async () => {
     // Probe: if auth is disabled, /api/auth with empty pass returns {token:""}.
     try {
-      const t = await requestAuthToken("");
-      if (!t) {
-        setWebToken("");
-        return "";
-      }
-      // Unlikely: server returns token even for empty pass.
+      const t = (await requestAuthToken("")) || "";
       setWebToken(t);
+      clearAuthDeniedCooldown();
       return t;
     } catch (e: any) {
       if (e?.status !== 401) throw e;
     }
 
-    let lastMsg = "该共享已启用访问口令。请输入口令后继续。口令不会被保存。";
-    for (let attempt = 0; attempt < 3; attempt++) {
-      const pass = (await NiceModal.show(AccessPassDialog, {
-        title: "需要访问口令",
-        description: lastMsg,
-      })) as string;
-
-      try {
-        const token = await requestAuthToken(pass);
-        setWebToken(token);
-        return token;
-      } catch (e: any) {
-        if (e?.status === 401) {
-          lastMsg = e?.message || "访问口令错误，请重试。";
-          setWebToken("");
-          continue;
-        }
-        throw e;
+    let token = "";
+    try {
+      await NiceModal.show(AccessPassDialog, {
+        onSave: async (p: string) => {
+          token = await requestAuthToken(p);
+          setWebToken(token);
+          clearAuthDeniedCooldown();
+        },
+      });
+    } catch (e: any) {
+      // User manually closed/cancelled the dialog.
+      if (e instanceof SilentError) {
+        markAuthDeniedCooldown();
       }
+      throw e;
     }
-
-    throw new Error("访问口令错误次数过多");
+    return token;
   })();
 
   try {
