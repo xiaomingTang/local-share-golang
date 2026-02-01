@@ -9,4 +9,5 @@ export const TextButton = styled(Button)(({ theme }) => ({
   textUnderlineOffset: "3px",
   color: "inherit",
   font: "inherit",
+  whiteSpace: "nowrap",
 }));
