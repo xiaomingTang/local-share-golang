@@ -50,22 +50,25 @@ export function DirectoryList(props: DirectoryListProps) {
             <div
               key={`${it.type}:${it.name}`}
               className={clsx(
-                "flex items-center gap-2 md:gap-3 px-2 md:px-4 py-1.5 md:py-3 ",
-                isSelected ? " bg-blue-500/10" : "",
+                "flex items-center px-2 md:px-4 py-1.5 md:py-3",
+                isSelected
+                  ? "bg-blue-500/10 hover:bg-blue-500/20"
+                  : "hover:bg-white/5",
               )}
               onDoubleClick={() => {
                 if (isDir) onOpenFolder(it.name);
                 else if (previewable) onOpenPreview(it.name);
               }}
             >
-              <div className="w-6">
-                <Checkbox
-                  checked={isSelected}
-                  onChange={(e) => onToggleSelect(it.name, e.target.checked)}
-                  size="small"
-                />
+              <Checkbox
+                checked={isSelected}
+                onChange={(e) => onToggleSelect(it.name, e.target.checked)}
+                size="small"
+                edge="start"
+              />
+              <div className="w-6 select-none text-xl mr-2 md:mr-3">
+                {getFileIcon(it)}
               </div>
-              <div className="w-6 select-none text-xl">{getFileIcon(it)}</div>
               <div
                 className={clsx(
                   "min-w-0 flex-1",

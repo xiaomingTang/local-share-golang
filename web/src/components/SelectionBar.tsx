@@ -40,7 +40,7 @@ export function SelectionBar(props: SelectionBarProps) {
   return (
     <Paper
       className={clsx(
-        "mb-3 px-4 py-3 relative",
+        "mb-3 px-2 md:px-4 py-3 relative",
         selectedTotal > 0 && "sticky top-2 z-10",
       )}
       elevation={0}
