@@ -12,6 +12,7 @@ import { Toaster } from "react-hot-toast";
 import { SWRConfig } from "swr";
 
 const theme = createTheme({
+  spacing: 4,
   palette: {
     mode: "dark",
     background: {
