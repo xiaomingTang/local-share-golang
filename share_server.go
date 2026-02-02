@@ -97,6 +97,36 @@ type ShareServer struct {
 	watchRoot string
 }
 
+func shouldServeWebFromDisk() bool {
+	// In dev, we want the share-server web UI (web/dist) to update without
+	// restarting the Go process. Serving from disk achieves that.
+	//
+	// Production builds should still use embedded assets.
+	if strings.EqualFold(os.Getenv("LOCALSHARE_WEB_DISK"), "1") {
+		return true
+	}
+	return strings.EqualFold(Version, "dev")
+}
+
+func findWebDistDir() (string, bool) {
+	// Try common locations. In `wails dev`, CWD is typically the repo root.
+	candidates := []string{
+		filepath.Join("web", "dist"),
+	}
+	if exe, err := os.Executable(); err == nil {
+		exeDir := filepath.Dir(exe)
+		candidates = append(candidates, filepath.Join(exeDir, "web", "dist"))
+	}
+
+	for _, dir := range candidates {
+		p := dir
+		if st, err := os.Stat(filepath.Join(p, "index.html")); err == nil && !st.IsDir() {
+			return p, true
+		}
+	}
+	return "", false
+}
+
 func NewShareServer() *ShareServer {
 	return &ShareServer{
 		events:       newSSEHub(),
@@ -666,15 +696,35 @@ func (s *ShareServer) stopLocked(ctx context.Context) error {
 }
 
 func (s *ShareServer) registerRoutes(mux *http.ServeMux) {
-	staticFS, err := fs.Sub(webAssets, "web/dist")
-	if err != nil {
-		mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-			http.Error(w, "static assets not available", http.StatusInternalServerError)
-		})
-		return
+	serveFromDisk := shouldServeWebFromDisk()
+	var staticFS fs.FS
+	isDiskFS := false
+
+	if serveFromDisk {
+		if dir, ok := findWebDistDir(); ok {
+			staticFS = os.DirFS(dir)
+			isDiskFS = true
+		}
+	}
+	if staticFS == nil {
+		sub, err := fs.Sub(webAssets, "web/dist")
+		if err != nil {
+			mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+				http.Error(w, "static assets not available", http.StatusInternalServerError)
+			})
+			return
+		}
+		staticFS = sub
 	}
 
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		// In dev, prevent browser caching from masking updated builds.
+		if isDiskFS {
+			w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate")
+			w.Header().Set("Pragma", "no-cache")
+			w.Header().Set("Expires", "0")
+		}
+
 		// Serve embedded static assets.
 		// Avoid http.FileServer's implicit redirects which can cause redirect loops
 		// in some FS/path combinations.
@@ -692,35 +742,54 @@ func (s *ShareServer) registerRoutes(mux *http.ServeMux) {
 			name = "index.html"
 		}
 
-		data, readErr := fs.ReadFile(staticFS, name)
-		if readErr != nil {
+		openAndServe := func(fileName string) bool {
+			f, err := staticFS.Open(fileName)
+			if err != nil {
+				return false
+			}
+			defer f.Close()
+
+			mod := time.Time{}
+			if st, err := fs.Stat(staticFS, fileName); err == nil {
+				mod = st.ModTime()
+			}
+			if rs, ok := f.(io.ReadSeeker); ok {
+				http.ServeContent(w, r, path.Base(fileName), mod, rs)
+				return true
+			}
+			// Fallback (should be rare): read into memory.
+			data, err := fs.ReadFile(staticFS, fileName)
+			if err != nil {
+				return false
+			}
+			http.ServeContent(w, r, path.Base(fileName), mod, bytes.NewReader(data))
+			return true
+		}
+
+		// Try exact file first.
+		served := openAndServe(name)
+		if !served {
 			// If it's a directory, try index.html inside it.
 			if st, statErr := fs.Stat(staticFS, name); statErr == nil && st.IsDir() {
 				idx := path.Join(name, "index.html")
-				data, readErr = fs.ReadFile(staticFS, idx)
 				name = idx
+				served = openAndServe(idx)
 			}
 		}
-		if readErr != nil {
+		if !served {
 			// SPA fallback: if a non-asset route is requested, serve index.html.
 			// Keep missing static assets as 404 (e.g. /assets/*.js).
 			base := path.Base(name)
 			isAsset := strings.Contains(base, ".")
 			if !isAsset {
-				idxData, idxErr := fs.ReadFile(staticFS, "index.html")
-				if idxErr == nil {
-					data = idxData
-					name = "index.html"
-					readErr = nil
-				}
+				name = "index.html"
+				served = openAndServe("index.html")
 			}
 		}
-		if readErr != nil {
+		if !served {
 			http.NotFound(w, r)
 			return
 		}
-
-		http.ServeContent(w, r, path.Base(name), time.Time{}, bytes.NewReader(data))
 	})
 
 	mux.HandleFunc("/api/files", s.handleFiles)
