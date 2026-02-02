@@ -199,7 +199,7 @@ export default function App() {
             </ButtonGroup>
           </Box>
 
-          <div className="py-2 text-xs opacity-80 text-center">
+          <div className="pt-2 pb-1.5 text-xs opacity-80 text-center">
             也可以把文件夹拖拽到窗口开始共享
           </div>
 
@@ -222,8 +222,7 @@ export default function App() {
                   onClick={() => copyText(sharedFolder ?? "")}
                 >
                   <ContentCopyIcon
-                    fontSize="inherit"
-                    sx={{ color: "inherit" }}
+                    sx={{ color: "inherit", fontSize: "14px" }}
                   />
                 </IconButton>
               </Stack>
@@ -251,20 +250,16 @@ export default function App() {
                   onClick={() => copyText(serverUrl ?? "")}
                 >
                   <ContentCopyIcon
-                    fontSize="inherit"
-                    sx={{ color: "inherit" }}
+                    sx={{ color: "inherit", fontSize: "14px" }}
                   />
                 </IconButton>
               </Stack>
             }
           />
 
-          <Stack
-            spacing={1}
-            direction="column"
-            alignItems="center"
-            className="mt-4"
-          >
+          <Box height="12px" />
+
+          <Stack spacing={2} direction="column" alignItems="center">
             {serverUrl && (
               <div className="flex justify-center items-center relative">
                 <QRCodeCanvas
@@ -315,7 +310,16 @@ export default function App() {
           </Stack>
         </div>
 
-        <div className="bg-white/5 rounded-xl border border-white/10 p-4 mt-3">
+        <Stack
+          spacing={1.5}
+          sx={{
+            backgroundColor: "rgba(255, 255, 255, 0.05)",
+            mt: 3,
+            p: 4,
+            borderRadius: 2,
+            border: "1px solid rgba(255, 255, 255, 0.1)",
+          }}
+        >
           <KV
             k="右键菜单"
             v={
@@ -334,7 +338,6 @@ export default function App() {
           />
 
           <KV
-            sx={{ mt: 1, mb: 1 }}
             k={
               <TextButton
                 onClick={() => {
@@ -355,7 +358,6 @@ export default function App() {
           />
 
           <KV
-            sx={{ mt: 1, mb: 1 }}
             k={
               <TextButton
                 onClick={() => {
@@ -403,7 +405,7 @@ export default function App() {
               </Typography>
             }
           />
-        </div>
+        </Stack>
       </div>
       <DropOverlay active={dropOverlayActive} />
     </>
