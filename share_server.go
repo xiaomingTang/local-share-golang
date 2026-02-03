@@ -1587,6 +1587,14 @@ func (s *ShareServer) handleDelete(w http.ResponseWriter, r *http.Request) {
 			errorsMap[rel] = "不存在"
 			continue
 		}
+		if runtime.GOOS == "windows" {
+			if err := moveToTrash(full); err != nil {
+				errorsMap[rel] = "移入回收站失败"
+				continue
+			}
+			deleted++
+			continue
+		}
 		if st.IsDir() {
 			if err := os.RemoveAll(full); err != nil {
 				errorsMap[rel] = "删除失败"

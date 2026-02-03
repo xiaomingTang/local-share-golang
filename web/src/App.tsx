@@ -145,7 +145,7 @@ export default function App() {
     if (paths.length === 0) return;
     if (
       !window.confirm(
-        `确认删除已选 ${paths.length} 项（文件/文件夹）？此操作不可撤销。`,
+        `确认删除已选 ${paths.length} 项（文件/文件夹）？Windows 下会移入回收站。`,
       )
     ) {
       return;
