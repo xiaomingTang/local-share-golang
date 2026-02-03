@@ -72,7 +72,7 @@ export const AccessPassDialog = NiceModal.create(
               placeholder="如：a8"
               value={text}
               onChange={(e) => setText(e.target.value)}
-              error={Boolean(text) && !v.ok}
+              error={!!text && !v.ok}
               helperText={v.ok ? "\u00A0" : v.helperText}
               slotProps={{
                 input: {

@@ -10,10 +10,9 @@ import {
 import NiceModal, { useModal } from "@ebay/nice-modal-react";
 
 import { muiDialogV5ReplaceOnClose } from "@common/utils/muiDialogV5ReplaceOnClose";
-import { useThrottle } from "@common/utils/useThrottle";
-import { useMountedRef } from "@common/utils/useMounted";
+import { useThrottlingState } from "@common/utils/useThrottle";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { autoFocus } from "@common/utils/autoFocus";
 
 function parseAccessPassInputText(input: string): {
@@ -40,20 +39,12 @@ export const AccessPassDialog = NiceModal.create(
   (props: AccessPassDialogProps) => {
     const modal = useModal();
 
-    const [text, setText] = useState(props.value ?? "");
-    const parsed = useMemo(() => parseAccessPassInputText(text), [text]);
-
-    const throttledOnSave = useThrottle((v: string) => props.onSave?.(v), 400, {
-      leading: true,
-      trailing: true,
-    });
-
-    const didMountRef = useMountedRef();
-    useEffect(() => {
-      if (didMountRef.current && !parseAccessPassInputText(text).error) {
-        throttledOnSave(text);
+    const [text, setText] = useThrottlingState(props.value ?? "", (v) => {
+      if (!parseAccessPassInputText(v).error) {
+        props.onSave?.(v);
       }
-    }, [didMountRef, text, throttledOnSave]);
+    });
+    const parsed = useMemo(() => parseAccessPassInputText(text), [text]);
 
     return (
       <Dialog
@@ -72,7 +63,7 @@ export const AccessPassDialog = NiceModal.create(
         <DialogContent>
           <Box
             component="form"
-            sx={{ width: "100%", pt: 1 }}
+            sx={{ width: "100%", pt: 2 }}
             onSubmit={(e) => {
               e.preventDefault();
               if (parsed.error) return;
@@ -87,7 +78,7 @@ export const AccessPassDialog = NiceModal.create(
               label="访问口令"
               value={text}
               onChange={(e) => setText(e.target.value)}
-              error={Boolean(parsed.error)}
+              error={!!parsed.error}
               helperText={
                 parsed.error ?? "1-16 位数字/大小写字母，留空 表示不启用"
               }

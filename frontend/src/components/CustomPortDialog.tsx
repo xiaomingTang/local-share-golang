@@ -1,31 +1,20 @@
 import {
   Box,
-  Button,
   Dialog,
-  DialogActions,
   DialogContent,
   DialogTitle,
   InputAdornment,
   TextField,
-  Typography,
 } from "@mui/material";
 
 import NiceModal, { useModal } from "@ebay/nice-modal-react";
 
 import { muiDialogV5ReplaceOnClose } from "@common/utils/muiDialogV5ReplaceOnClose";
-import {
-  FormEvent,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { FormEvent, useMemo } from "react";
 import { TextButton } from "./TextButton";
 import { useLoading } from "@zimi/hooks";
 import { main } from "wailsjs/go/models";
-import { useThrottle } from "@common/utils/useThrottle";
-import { useMountedRef } from "@common/utils/useMounted";
+import { useThrottlingState } from "@common/utils/useThrottle";
 import { cat } from "@common/error/catch-and-toast";
 import { autoFocus } from "@common/utils/autoFocus";
 
@@ -55,29 +44,22 @@ export const CustomPortDialog = NiceModal.create(
     const modal = useModal();
     const serverInfo = props.serverInfo;
 
-    const [text, setText] = useState(props.value ?? "");
+    const [text, setText] = useThrottlingState(props.value ?? "", (v) => {
+      if (!parsePortInputText(v).error) {
+        props.onSave?.(v);
+      }
+    });
 
     const parsed = useMemo(() => parsePortInputText(text), [text]);
     const trimmed = text.trim();
     const [isLoading, withLoading] = useLoading();
 
-    const applyDisabled =
+    const buttonDisabled =
       Boolean(parsed.error) ||
       isLoading ||
       !serverInfo?.url ||
       !trimmed ||
       (parsed.port !== null && parsed.port === serverInfo.port);
-
-    const throttledOnSave = useThrottle((v: string) => props.onSave?.(v), 400, {
-      leading: true,
-      trailing: true,
-    });
-    const didMountRef = useMountedRef();
-    useEffect(() => {
-      if (didMountRef.current && !parsePortInputText(text).error) {
-        throttledOnSave(text);
-      }
-    }, [throttledOnSave, text]);
 
     return (
       <Dialog
@@ -96,12 +78,20 @@ export const CustomPortDialog = NiceModal.create(
         <DialogContent>
           <Box
             component="form"
-            sx={{ width: "100%", pt: 1 }}
+            sx={{ width: "100%", pt: 2 }}
             onSubmit={withLoading(
               cat(async (e: FormEvent) => {
                 e.preventDefault();
-                if (applyDisabled) return;
-                await props.onApply?.(trimmed);
+                if (parsed.error || isLoading) {
+                  return;
+                }
+                if (
+                  serverInfo?.url &&
+                  parsed.port !== null &&
+                  parsed.port !== serverInfo.port
+                ) {
+                  await props.onApply?.(trimmed);
+                }
                 modal.resolve(trimmed);
                 void modal.hide();
               }),
@@ -116,7 +106,7 @@ export const CustomPortDialog = NiceModal.create(
               value={text}
               disabled={isLoading}
               onChange={(e) => setText(e.target.value)}
-              error={Boolean(parsed.error)}
+              error={!!parsed.error}
               helperText={parsed.error ?? "启动/切换时会优先使用该端口"}
               slotProps={{
                 input: {
@@ -124,8 +114,9 @@ export const CustomPortDialog = NiceModal.create(
                   endAdornment: (
                     <InputAdornment position="end">
                       <TextButton
-                        type="submit"
-                        disabled={applyDisabled}
+                        // 不能作为 'submit' 去 disabled, 否则会导致 Enter 不触发 form submit
+                        type={buttonDisabled ? "button" : "submit"}
+                        disabled={buttonDisabled}
                         sx={{ fontSize: 14 }}
                       >
                         立即应用
