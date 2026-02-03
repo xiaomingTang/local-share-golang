@@ -43,7 +43,7 @@ export function DirectoryList(props: DirectoryListProps) {
           const isDir = it.type === "directory";
           const previewable = canPreview(it);
           const isSelected = selected.has(buildFilePath(currentPath, it.name));
-          const date = new Date(it.modified).toLocaleDateString();
+          const date = new Date(it.modified).toISOString().split("T")[0];
           const size = it.type === "file" ? formatFileSize(it.size) : "";
 
           return (
