@@ -44,8 +44,6 @@ import { CustomPortDialog } from "./components/CustomPortDialog";
 import { AccessPassDialog } from "./components/AccessPassDialog";
 import { TextButton } from "./components/TextButton";
 import { KV } from "./components/KV";
-import { CopyableText } from "./components/CopyableText";
-import { autoFocus } from "@common/utils/autoFocus";
 
 const GITHUB_REPO_URL =
   "https://github.com/xiaomingTang/local-share-golang/releases";
@@ -282,7 +280,6 @@ export default function App() {
             )}
             {!serverUrl && (
               <ButtonBase
-                ref={autoFocus}
                 title="点击选择文件夹开始共享"
                 focusRipple
                 className="size-60"
