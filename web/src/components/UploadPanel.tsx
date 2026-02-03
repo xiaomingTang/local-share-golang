@@ -36,6 +36,7 @@ export function UploadPanel(props: UploadPanelProps) {
 
       <ButtonBase
         disabled={uploading}
+        focusRipple
         onClick={() => fileInputRef.current?.click()}
         sx={{
           display: "flex",
