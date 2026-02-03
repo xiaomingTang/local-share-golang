@@ -54,6 +54,12 @@ jobs:
           $exe = Get-ChildItem -Path build/bin -Filter *.exe -ErrorAction Stop | Sort-Object LastWriteTime -Descending | Select-Object -First 1
           if (-not $exe) { throw 'No .exe found under build/bin' }
 
+          $exeName = "${{ github.event.repository.name }}-$tag-windows-amd64.exe"
+          $exeOutPath = Join-Path dist $exeName
+          Copy-Item $exe.FullName -Destination $exeOutPath -Force
+          $exeHash = (Get-FileHash -Algorithm SHA256 $exeOutPath).Hash.ToLower()
+          "$exeHash  $exeName" | Out-File -Encoding ascii -NoNewline (Join-Path dist "${exeName}.sha256")
+
           $zipName = "${{ github.event.repository.name }}-$tag-windows-amd64.zip"
           $zipPath = Join-Path dist $zipName
 
@@ -72,5 +78,6 @@ jobs:
         with:
           generate_release_notes: true
           files: |
+            dist/*.exe
             dist/*.zip
             dist/*.sha256

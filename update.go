@@ -24,7 +24,7 @@ const (
 	githubRepo  = "local-share-golang"
 
 	// The release asset inside the zip.
-	// The user's current release zip contains this filename.
+	// Some historical builds used the *-dev.exe name; current CI packs local-share-golang.exe.
 	releaseInnerExeName = "local-share-golang-dev.exe"
 	// Some builds may contain a non-dev name; keep as fallback.
 	releaseInnerExeNameAlt = "local-share-golang.exe"
