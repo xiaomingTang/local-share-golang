@@ -9,14 +9,14 @@ import {
 
 import NiceModal, { useModal } from "@ebay/nice-modal-react";
 
-import { muiDialogV5ReplaceOnClose } from "@common/utils/muiDialogV5ReplaceOnClose";
+import { muiDialogV5ReplaceOnClose } from "common/utils/muiDialogV5ReplaceOnClose";
 import { FormEvent, useMemo } from "react";
 import { TextButton } from "./TextButton";
 import { useLoading } from "@zimi/hooks";
 import { main } from "wailsjs/go/models";
-import { useThrottlingState } from "@common/utils/useThrottle";
-import { cat } from "@common/error/catch-and-toast";
-import { autoFocus } from "@common/utils/autoFocus";
+import { useThrottlingState } from "common/utils/useThrottle";
+import { cat } from "common/error/catch-and-toast";
+import { autoFocus } from "common/utils/autoFocus";
 
 function parsePortInputText(input: string): {
   port: number | null;

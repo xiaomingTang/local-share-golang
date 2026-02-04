@@ -1,6 +1,6 @@
 import { SxProps, Theme } from "@mui/material";
 import { TextButton } from "./TextButton";
-import { copyText } from "../utils";
+import { copyText } from "src/utils";
 import React from "react";
 
 interface CopyTextProps {

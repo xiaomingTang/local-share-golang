@@ -1,5 +1,5 @@
 import toast from "react-hot-toast";
-import { BrowserOpenURL, ClipboardSetText } from "../wailsjs/runtime/runtime";
+import { BrowserOpenURL, ClipboardSetText } from "wailsjs/runtime/runtime";
 import {
   ApplyDownloadedUpdate,
   CheckForUpdate,
@@ -7,8 +7,8 @@ import {
   GetDownloadsDir,
   GetVersion,
   OpenFolder,
-} from "../wailsjs/go/main/App";
-import { toError } from "@common/error/utils";
+} from "wailsjs/go/main/App";
+import { toError } from "common/error/utils";
 
 export function openUrlInBrowser(url?: string) {
   const trimmedUrl = url?.trim() || "";

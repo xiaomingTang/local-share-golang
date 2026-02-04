@@ -2,7 +2,9 @@
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "@common/*": ["../common/src/*"]
+      "common/*": ["../common/src/*"],
+      "src/*": ["src/*"],
+      "wailsjs/*": ["./wailsjs/*"]
     },
     "target": "ES2022",
     "useDefineForClassFields": true,

@@ -9,11 +9,11 @@ import {
 
 import NiceModal, { useModal } from "@ebay/nice-modal-react";
 
-import { muiDialogV5ReplaceOnClose } from "@common/utils/muiDialogV5ReplaceOnClose";
-import { useThrottlingState } from "@common/utils/useThrottle";
+import { muiDialogV5ReplaceOnClose } from "common/utils/muiDialogV5ReplaceOnClose";
+import { useThrottlingState } from "common/utils/useThrottle";
 
 import { useMemo } from "react";
-import { autoFocus } from "@common/utils/autoFocus";
+import { autoFocus } from "common/utils/autoFocus";
 
 function parseAccessPassInputText(input: string): {
   value: string;

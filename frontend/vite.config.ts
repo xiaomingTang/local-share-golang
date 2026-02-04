@@ -10,7 +10,9 @@ export default defineConfig({
   plugins: [svgr(), react(), tailwindcss()],
   resolve: {
     alias: {
-      "@common": resolve(__dirname, "../common/src"),
+      common: resolve(__dirname, "../common/src"),
+      src: resolve(__dirname, "src"),
+      wailsjs: resolve(__dirname, "wailsjs"),
     },
   },
 });

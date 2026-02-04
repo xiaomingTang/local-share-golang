@@ -1,4 +1,4 @@
-import { EventsOn, OnFileDrop } from "../../wailsjs/runtime/runtime";
+import { OnFileDrop } from "wailsjs/runtime/runtime";
 
 type InitShareFileDropArgs = {
   setDropOverlayActive: (active: boolean) => void;
