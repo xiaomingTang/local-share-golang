@@ -36,6 +36,7 @@ var webAssets embed.FS
 
 const settingKeyCustomPort = "local-share:custom-port"
 const settingKeyAccessPass = "local-share:access-pass"
+const settingKeyPermissions = "local-share:permissions"
 
 const headerShareToken = "X-Share-Token"
 const queryShareToken = "token"
@@ -180,6 +181,43 @@ func (s *ShareServer) getAccessPassFromSettings() (string, bool, error) {
 	return pass, true, nil
 }
 
+type permissionSetting struct {
+	Read   *bool `json:"read"`
+	Write  *bool `json:"write"`
+	Delete *bool `json:"delete"`
+}
+
+type effectivePermissions struct {
+	Read   bool
+	Write  bool
+	Delete bool
+}
+
+func (s *ShareServer) getPermissionsFromSettings() effectivePermissions {
+	perms := effectivePermissions{Read: true, Write: true, Delete: false}
+	if s.settings == nil {
+		return perms
+	}
+	raw, ok, err := s.settings.Get(settingKeyPermissions)
+	if err != nil || !ok || len(raw) == 0 {
+		return perms
+	}
+	var input permissionSetting
+	if err := json.Unmarshal(raw, &input); err != nil {
+		return perms
+	}
+	if input.Read != nil {
+		perms.Read = *input.Read
+	}
+	if input.Write != nil {
+		perms.Write = *input.Write
+	}
+	if input.Delete != nil {
+		perms.Delete = *input.Delete
+	}
+	return perms
+}
+
 func getClientIP(r *http.Request) string {
 	if r == nil {
 		return ""
@@ -309,6 +347,39 @@ func (s *ShareServer) requireAuth(w http.ResponseWriter, r *http.Request) bool {
 		return false
 	}
 	return true
+}
+
+func (s *ShareServer) requirePermission(w http.ResponseWriter, perm string) bool {
+	perms := s.getPermissionsFromSettings()
+	allowed := false
+	code := ""
+	msg := ""
+	switch perm {
+	case "read":
+		allowed = perms.Read
+		code = "PERMISSION_DENIED_READ"
+		msg = "无读取权限"
+	case "write":
+		allowed = perms.Write
+		code = "PERMISSION_DENIED_WRITE"
+		msg = "无写入权限"
+	case "delete":
+		allowed = perms.Delete
+		code = "PERMISSION_DENIED_DELETE"
+		msg = "无删除权限"
+	default:
+		allowed = false
+		code = "PERMISSION_DENIED"
+		msg = "无权限"
+	}
+	if allowed {
+		return true
+	}
+	writeJSON(w, http.StatusForbidden, map[string]string{
+		"error": msg,
+		"code":  code,
+	})
+	return false
 }
 
 func (s *ShareServer) handleAuth(w http.ResponseWriter, r *http.Request) {
@@ -808,6 +879,9 @@ func (s *ShareServer) handleEvents(w http.ResponseWriter, r *http.Request) {
 	if !s.requireAuth(w, r) {
 		return
 	}
+	if !s.requirePermission(w, "read") {
+		return
+	}
 	if s.events == nil {
 		w.WriteHeader(http.StatusServiceUnavailable)
 		return
@@ -917,6 +991,9 @@ func (s *ShareServer) handleFiles(w http.ResponseWriter, r *http.Request) {
 	if !s.requireAuth(w, r) {
 		return
 	}
+	if !s.requirePermission(w, "read") {
+		return
+	}
 
 	subPath := r.URL.Query().Get("path")
 	fullPath, ok := safeJoin(root, subPath)
@@ -975,6 +1052,9 @@ func (s *ShareServer) handleDownload(w http.ResponseWriter, r *http.Request) {
 	if !s.requireAuth(w, r) {
 		return
 	}
+	if !s.requirePermission(w, "read") {
+		return
+	}
 
 	filePath := r.URL.Query().Get("path")
 	if strings.TrimSpace(filePath) == "" {
@@ -1023,6 +1103,9 @@ func (s *ShareServer) handleDownloadZip(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	if !s.requireAuth(w, r) {
+		return
+	}
+	if !s.requirePermission(w, "read") {
 		return
 	}
 
@@ -1360,6 +1443,9 @@ func (s *ShareServer) handlePreview(w http.ResponseWriter, r *http.Request) {
 	if !s.requireAuth(w, r) {
 		return
 	}
+	if !s.requirePermission(w, "read") {
+		return
+	}
 
 	filePath := r.URL.Query().Get("path")
 	if strings.TrimSpace(filePath) == "" {
@@ -1443,6 +1529,14 @@ func (s *ShareServer) handleUpload(w http.ResponseWriter, r *http.Request) {
 	if !s.requireAuth(w, r) {
 		return
 	}
+	perms := s.getPermissionsFromSettings()
+	if !perms.Write {
+		writeJSON(w, http.StatusForbidden, map[string]string{
+			"error": "无写入权限",
+			"code":  "PERMISSION_DENIED_WRITE",
+		})
+		return
+	}
 
 	// 10GB
 	r.Body = http.MaxBytesReader(w, r.Body, 10*1024*1024*1024)
@@ -1490,6 +1584,22 @@ func (s *ShareServer) handleUpload(w http.ResponseWriter, r *http.Request) {
 		defer f.Close()
 
 		outPath := filepath.Join(uploadDir, filepath.Base(fh.Filename))
+		if !perms.Delete {
+			if st, err := os.Stat(outPath); err == nil {
+				if st.IsDir() {
+					writeJSON(w, http.StatusForbidden, map[string]string{
+						"error": "无删除权限，不能覆盖同名目录",
+						"code":  "PERMISSION_DENIED_DELETE",
+					})
+					return
+				}
+				writeJSON(w, http.StatusForbidden, map[string]string{
+					"error": "无删除权限，不能覆盖同名文件",
+					"code":  "PERMISSION_DENIED_DELETE",
+				})
+				return
+			}
+		}
 		out, err := os.Create(outPath)
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "写入文件失败"})
@@ -1532,6 +1642,9 @@ func (s *ShareServer) handleDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !s.requireAuth(w, r) {
+		return
+	}
+	if !s.requirePermission(w, "delete") {
 		return
 	}
 

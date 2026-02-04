@@ -1,7 +1,14 @@
 import useSWR, { SWRResponse } from "swr";
 
 import NiceModal from "@ebay/nice-modal-react";
-import { Typography } from "@mui/material";
+import {
+  Checkbox,
+  FormControlLabel,
+  FormGroup,
+  SxProps,
+  Theme,
+  Typography,
+} from "@mui/material";
 
 import {
   ApplyCustomPorts,
@@ -20,6 +27,7 @@ import { AccessPassDialog } from "src/components/AccessPassDialog";
 
 const CUSTOM_PORT_KEY = "local-share:custom-port" as const;
 const ACCESS_PASS_KEY = "local-share:access-pass" as const;
+const PERMISSIONS_KEY = "local-share:permissions" as const;
 
 function ctxMenuExistsLabel(res: SWRResponse<boolean, unknown>) {
   if (res.error) return "检测失败（点击重试）";
@@ -113,6 +121,86 @@ export function SettingOfAccessPass() {
         </TextButton>
       }
       v={<Typography color="action.disabled">{accessPassText}</Typography>}
+    />
+  );
+}
+
+type PermissionSetting = {
+  read?: boolean;
+  write?: boolean;
+  delete?: boolean;
+};
+
+const DEFAULT_PERMISSIONS: PermissionSetting = {
+  read: true,
+  write: true,
+  delete: false,
+};
+
+const checkBoxSx: SxProps<Theme> = {
+  [`&.MuiCheckbox-root`]: {
+    py: 0.5,
+    px: 1,
+    ml: 1,
+  },
+};
+
+export function SettingOfPermissions() {
+  const [permissions, setPermissions] = useRemoteSetting<PermissionSetting>(
+    PERMISSIONS_KEY,
+    DEFAULT_PERMISSIONS,
+  );
+
+  const current = {
+    read: permissions?.read ?? DEFAULT_PERMISSIONS.read,
+    write: permissions?.write ?? DEFAULT_PERMISSIONS.write,
+    delete: permissions?.delete ?? DEFAULT_PERMISSIONS.delete,
+  };
+
+  const update = (patch: Partial<PermissionSetting>) => {
+    setPermissions({ ...current, ...patch });
+  };
+
+  return (
+    <KV
+      k="权限管理"
+      v={
+        <FormGroup row sx={{ pl: 1 }}>
+          <FormControlLabel
+            label="读"
+            control={
+              <Checkbox
+                size="small"
+                checked={current.read}
+                sx={checkBoxSx}
+                onChange={(e) => update({ read: e.target.checked })}
+              />
+            }
+          />
+          <FormControlLabel
+            label="写"
+            control={
+              <Checkbox
+                size="small"
+                checked={current.write}
+                sx={checkBoxSx}
+                onChange={(e) => update({ write: e.target.checked })}
+              />
+            }
+          />
+          <FormControlLabel
+            label="删除"
+            control={
+              <Checkbox
+                size="small"
+                checked={current.delete}
+                sx={checkBoxSx}
+                onChange={(e) => update({ delete: e.target.checked })}
+              />
+            }
+          />
+        </FormGroup>
+      }
     />
   );
 }

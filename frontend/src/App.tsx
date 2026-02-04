@@ -12,6 +12,7 @@ import {
   SettingOfAccessPass,
   SettingOfContextMenu,
   SettingOfCustomPort,
+  SettingOfPermissions,
 } from "./sections/SettingsSection";
 
 export default function App() {
@@ -56,7 +57,9 @@ export default function App() {
           <Grid size={6}>
             <SettingOfCustomPort />
           </Grid>
-          <Grid size={6}>{/* 新增 权限管理：读、写、删除 */}</Grid>
+          <Grid size={6}>
+            <SettingOfPermissions />
+          </Grid>
           <Grid size={12} sx={{ py: 1.5 }}>
             <Divider />
           </Grid>
