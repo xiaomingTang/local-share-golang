@@ -1,6 +1,6 @@
 import useSWR from "swr";
-import type { DirectoryItem } from "../types";
-import { fetchFiles } from "../utils/api";
+import type { DirectoryItem } from "src/types";
+import { fetchFiles } from "src/utils/api";
 
 export function useDirectoryListing(currentPath: string) {
   const {

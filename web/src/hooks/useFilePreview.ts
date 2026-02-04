@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import useSWR from "swr";
-import { fetchPreview } from "../utils/api";
-import { isImageType } from "../utils/fileUtils";
+import { fetchPreview } from "src/utils/api";
+import { isImageType } from "src/utils/fileUtils";
 import { useObjectURL } from "./useObjectURL";
 
 type PreviewState =

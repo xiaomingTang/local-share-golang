@@ -10,12 +10,12 @@ import {
 import NiceModal, { useModal } from "@ebay/nice-modal-react";
 import useSWR from "swr";
 
-import { muiDialogV5ReplaceOnClose } from "@common/utils/muiDialogV5ReplaceOnClose";
-import { SilentError } from "@common/error/silent-error";
+import { muiDialogV5ReplaceOnClose } from "common/utils/muiDialogV5ReplaceOnClose";
+import { SilentError } from "common/error/silent-error";
 
-import { fetchPreview } from "../utils/api";
-import { isImageType } from "../utils/fileUtils";
-import { useObjectURL } from "../hooks/useObjectURL";
+import { fetchPreview } from "src/utils/api";
+import { isImageType } from "src/utils/fileUtils";
+import { useObjectURL } from "src/hooks/useObjectURL";
 
 export type PreviewDialogProps = {
   title: string;

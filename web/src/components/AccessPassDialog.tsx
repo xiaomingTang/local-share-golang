@@ -11,11 +11,11 @@ import {
 
 import NiceModal, { useModal } from "@ebay/nice-modal-react";
 
-import { muiDialogV5ReplaceOnClose } from "@common/utils/muiDialogV5ReplaceOnClose";
+import { muiDialogV5ReplaceOnClose } from "common/utils/muiDialogV5ReplaceOnClose";
 import { TextButton } from "./TextButton";
 
 import { SubmitEvent, useMemo, useState } from "react";
-import { cat } from "@common/error/catch-and-toast";
+import { cat } from "common/error/catch-and-toast";
 
 function validatePass(input: string): { ok: boolean; helperText: string } {
   const trimmed = (input || "").trim();

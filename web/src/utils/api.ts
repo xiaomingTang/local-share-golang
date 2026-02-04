@@ -1,6 +1,6 @@
-import { getWebToken, setWebToken } from "@common/storage/web-token";
+import { getWebToken, setWebToken } from "common/storage/web-token";
 
-import type { DeleteResponse, FilesResponse } from "../types";
+import type { DeleteResponse, FilesResponse } from "src/types";
 import { ensureShareToken } from "./auth";
 import { http } from "./http";
 

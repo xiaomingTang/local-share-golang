@@ -13,8 +13,8 @@ import {
 
 import NiceModal, { useModal } from "@ebay/nice-modal-react";
 
-import { muiDialogV5ReplaceOnClose } from "@common/utils/muiDialogV5ReplaceOnClose";
-import { useThrottlingState } from "@common/utils/useThrottle";
+import { muiDialogV5ReplaceOnClose } from "common/utils/muiDialogV5ReplaceOnClose";
+import { useThrottlingState } from "common/utils/useThrottle";
 
 export type DownloadZipIgnorePreset = {
   key: string;

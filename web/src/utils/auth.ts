@@ -1,8 +1,8 @@
 import NiceModal from "@ebay/nice-modal-react";
 
-import { AccessPassDialog } from "../components/AccessPassDialog";
-import { getWebToken, setWebToken } from "@common/storage/web-token";
-import { SilentError } from "@common/error/silent-error";
+import { AccessPassDialog } from "src/components/AccessPassDialog";
+import { getWebToken, setWebToken } from "common/storage/web-token";
+import { SilentError } from "common/error/silent-error";
 
 let inflightEnsure: Promise<string> | null = null;
 

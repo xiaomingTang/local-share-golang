@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getPathFromUrl, syncPathToUrl } from "../utils/path";
+import { getPathFromUrl, syncPathToUrl } from "src/utils/path";
 
 export function useSyncedPath() {
   const [currentPath, setCurrentPath] = useState<string>(() =>

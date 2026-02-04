@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import type { DirectoryItem } from "../types";
+import type { DirectoryItem } from "src/types";
 
 export function useSelection(params: {
   currentPath: string;

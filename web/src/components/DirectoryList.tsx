@@ -1,6 +1,6 @@
 import { Button, Checkbox } from "@mui/material";
-import type { DirectoryItem } from "../types";
-import { canPreview, formatFileSize, getFileIcon } from "../utils/fileUtils";
+import type { DirectoryItem } from "src/types";
+import { canPreview, formatFileSize, getFileIcon } from "src/utils/fileUtils";
 import clsx from "clsx";
 
 export type DirectoryListProps = {

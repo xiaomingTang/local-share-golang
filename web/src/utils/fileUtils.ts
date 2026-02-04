@@ -1,4 +1,4 @@
-import type { DirectoryItem } from "../types";
+import type { DirectoryItem } from "src/types";
 
 export function formatFileSize(bytes: number) {
   if (!bytes) return "0 B";

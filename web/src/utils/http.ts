@@ -1,6 +1,6 @@
 import ky, { HTTPError, TimeoutError, type Options } from "ky";
 
-import { getWebToken, setWebToken } from "@common/storage/web-token";
+import { getWebToken, setWebToken } from "common/storage/web-token";
 import { ensureShareToken } from "./auth";
 
 export class ApiError extends Error {

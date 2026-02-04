@@ -8,7 +8,7 @@ import {
   downloadZipWithIgnore,
   uploadFilesWithProgress,
 } from "./utils/api";
-import { toError } from "@common/error/utils";
+import { toError } from "common/error/utils";
 import { BreadcrumbNav } from "./components/BreadcrumbNav";
 import { DirectoryList } from "./components/DirectoryList";
 import { PreviewDialog } from "./components/PreviewDialog";
@@ -24,9 +24,9 @@ import { useDirectoryListing } from "./hooks/useDirectoryListing";
 import { useSelection } from "./hooks/useSelection";
 import { useSseDirsRefresh } from "./hooks/useSseDirsRefresh";
 import { useSyncedPath } from "./hooks/useSyncedPath";
-import { useRemoteSetting } from "@common/storage";
+import { useRemoteSetting } from "common/storage";
 import NiceModal from "@ebay/nice-modal-react";
-import { cat } from "@common/error/catch-and-toast";
+import { cat } from "common/error/catch-and-toast";
 import { ensureShareToken, withTokenQuery } from "./utils/auth";
 
 function buildFilePath(currentPath: string, fileName: string) {

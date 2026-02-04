@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { withTokenQuery } from "../utils/auth";
+import { withTokenQuery } from "src/utils/auth";
 
 function useTokenTick() {
   const [tokenTick, setTokenTick] = useState(0);
