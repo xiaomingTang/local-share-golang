@@ -59,7 +59,6 @@ export function initShareFileDrop({
   const onDrop = () => {
     dragDepth = 0;
     setDropOverlayActive(false);
-    console.log("Dropped paths:", "paths");
   };
 
   window.addEventListener("dragenter", onDragEnter);
