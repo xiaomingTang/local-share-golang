@@ -44,7 +44,7 @@ export default function App() {
             mt: 4,
             p: 4,
             backgroundColor: "rgba(255, 255, 255, 0.05)",
-            borderRadius: 2,
+            borderRadius: 1,
             border: "1px solid rgba(255, 255, 255, 0.1)",
           }}
         >

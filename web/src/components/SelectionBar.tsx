@@ -45,7 +45,7 @@ export function SelectionBar(props: SelectionBarProps) {
       )}
       elevation={0}
       sx={{
-        borderRadius: 2,
+        borderRadius: 1,
         backgroundColor: "rgba(255, 255, 255, 0.15)",
         backdropFilter: "blur(10px)",
       }}
