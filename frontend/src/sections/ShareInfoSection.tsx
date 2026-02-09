@@ -1,11 +1,11 @@
-import { Box, IconButton, Stack } from "@mui/material";
-import ContentCopyIcon from "@mui/icons-material/ContentCopy";
+import { Box, Stack } from "@mui/material";
+import useSWR from "swr";
+import { GetServerInfo } from "wailsjs/go/main/App";
 
 import { KV } from "src/components/KV";
 import { TextButton } from "src/components/TextButton";
-import { copyText, openFolder, openUrlInBrowser } from "src/utils";
-import useSWR from "swr";
-import { GetServerInfo } from "wailsjs/go/main/App";
+import { openFolder, openUrlInBrowser } from "src/utils";
+import { CopyButton } from "src/components/CopyButton";
 
 export interface ShareInfoSectionProps {
   sharedFolder?: string;
@@ -31,15 +31,14 @@ export function ShareInfoSection() {
             >
               {sharedFolder}
             </TextButton>
-            <IconButton
+            <CopyButton
               disabled={!sharedFolder}
               size="small"
               title="复制文件夹路径"
               aria-label="复制文件夹路径"
-              onClick={() => copyText(sharedFolder ?? "")}
-            >
-              <ContentCopyIcon sx={{ color: "inherit", fontSize: "14px" }} />
-            </IconButton>
+              text={sharedFolder}
+              sx={{ fontSize: "14px" }}
+            />
           </Stack>
         }
       />
@@ -57,15 +56,14 @@ export function ShareInfoSection() {
             >
               {serverUrl}
             </TextButton>
-            <IconButton
+            <CopyButton
               disabled={!serverUrl}
               size="small"
               title="复制访问地址"
               aria-label="复制访问地址"
-              onClick={() => copyText(serverUrl ?? "")}
-            >
-              <ContentCopyIcon sx={{ color: "inherit", fontSize: "14px" }} />
-            </IconButton>
+              text={serverUrl}
+              sx={{ fontSize: "14px" }}
+            />
           </Stack>
         }
       />
