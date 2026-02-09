@@ -14,7 +14,7 @@ export interface ShareQrSectionProps {
   onPickShare: () => void;
 }
 
-const SIZE = 240;
+const SIZE = 200;
 
 export function ShareQrSection() {
   const { data: serverInfo, mutate: mutateServerInfo } = useSWR(
@@ -36,7 +36,7 @@ export function ShareQrSection() {
       {serverUrl && (
         <div className="flex justify-center items-center relative">
           <QRCodeCanvas
-            className="bg-[#F3F3F3] rounded-lg p-4"
+            className="bg-[#F3F3F3] rounded p-3"
             bgColor="#F3F3F3"
             value={serverUrl}
             size={SIZE}
@@ -46,7 +46,7 @@ export function ShareQrSection() {
             alt="logo"
             className={clsx(
               "absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2",
-              "w-10 h-10 p-1 rounded-md bg-[#F3F3F3]",
+              "w-10 h-10 p-1 rounded bg-[#F3F3F3]",
               "pointer-events-none select-none",
             )}
           />
@@ -59,8 +59,7 @@ export function ShareQrSection() {
           sx={{
             width: SIZE,
             height: SIZE,
-            gap: 1,
-            borderRadius: 2,
+            borderRadius: 1,
             backgroundColor: "rgba(255, 255, 255, 0.1)",
             color: "rgba(255, 255, 255, 0.7)",
             fontWeight: "medium",
@@ -71,15 +70,9 @@ export function ShareQrSection() {
           <AdsClickIcon fontSize="large" />
         </ButtonBase>
       )}
-      <div
-        className={clsx(
-          "text-xs transition-opacity duration-300",
-          serverUrl
-            ? "opacity-80"
-            : "opacity-0 select-none pointer-events-none",
-        )}
-      >
-        手机和电脑需要在同一局域网
+      <div className="text-xs transition-opacity duration-300 opacity-80">
+        {serverUrl && "手机和电脑需要在同一局域网"}
+        {!serverUrl && "也可以把文件夹拖拽到窗口开始共享"}
       </div>
     </Stack>
   );

@@ -23,7 +23,7 @@ export function KV({ k, v, hidden, sx }: RowProps) {
     >
       <Box
         sx={{
-          minWidth: "110px",
+          minWidth: "6em",
           display: "flex",
           justifyContent: "flex-end",
           alignItems: "center",

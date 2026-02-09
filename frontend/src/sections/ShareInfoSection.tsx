@@ -1,11 +1,22 @@
 import { Box, Stack } from "@mui/material";
 import useSWR from "swr";
 import { GetServerInfo } from "wailsjs/go/main/App";
+import clsx from "clsx";
 
 import { KV } from "src/components/KV";
 import { TextButton } from "src/components/TextButton";
 import { openFolder, openUrlInBrowser } from "src/utils";
 import { CopyButton } from "src/components/CopyButton";
+
+function clipText(text: string | undefined, heading: number, tail: number) {
+  if (!text) {
+    return text;
+  }
+  if (text.length <= heading + tail) {
+    return text;
+  }
+  return text.slice(0, heading) + "..." + text.slice(-tail);
+}
 
 export interface ShareInfoSectionProps {
   sharedFolder?: string;
@@ -19,17 +30,18 @@ export function ShareInfoSection() {
   const serverUrl = serverInfo?.url;
 
   return (
-    <>
+    <div className="py-1 my-2 rounded flex flex-col items-center">
       <KV
         k="共享文件夹"
         hidden={!serverUrl}
+        sx={{ fontSize: "0.9em" }}
         v={
           <Stack direction="row" alignItems="center" spacing={1}>
             <TextButton
               disabled={!sharedFolder}
               onClick={() => openFolder(sharedFolder)}
             >
-              {sharedFolder}
+              {clipText(sharedFolder, 10, 10)}
             </TextButton>
             <CopyButton
               disabled={!sharedFolder}
@@ -43,11 +55,12 @@ export function ShareInfoSection() {
         }
       />
 
-      <Box height="4px" />
+      <Box height="2px" />
 
       <KV
         k="访问地址"
         hidden={!serverUrl}
+        sx={{ fontSize: "0.9em" }}
         v={
           <Stack direction="row" alignItems="center" spacing={1}>
             <TextButton
@@ -67,6 +80,6 @@ export function ShareInfoSection() {
           </Stack>
         }
       />
-    </>
+    </div>
   );
 }

@@ -1,5 +1,5 @@
 import { GithubBadge } from "./sections/GithubBadge";
-import { Divider, Grid } from "@mui/material";
+import { Divider, Grid, Stack } from "@mui/material";
 import { UpdateSection } from "./sections/UpdateSection";
 import { DropOverlay } from "./dragdrop/DropOverlay";
 import { useEventsOn } from "./hooks/useEventsOn";
@@ -27,15 +27,15 @@ export default function App() {
   return (
     <>
       <div className="max-w-215 mx-auto relative p-4">
-        <div className="bg-white/5 rounded-lg border border-white/10 p-4">
-          <ShareControlSection />
+        <Stack direction="row" gap={4}>
+          <div className="w-full bg-white/5 rounded border border-white/10 p-4">
+            <ShareControlSection />
 
-          <ShareInfoSection />
+            <ShareInfoSection />
 
-          <div className="h-3" />
-
-          <ShareQrSection />
-        </div>
+            <ShareQrSection />
+          </div>
+        </Stack>
 
         <Grid
           container

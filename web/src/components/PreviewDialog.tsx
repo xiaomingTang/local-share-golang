@@ -69,14 +69,14 @@ export const PreviewDialog = NiceModal.create((props: PreviewDialogProps) => {
           <img
             src={imageUrl}
             alt={title}
-            className="mx-auto max-h-[70vh] max-w-full rounded-lg"
+            className="mx-auto max-h-[70vh] max-w-full rounded"
           />
         )}
         {!previewIsValidating && !imageUrl && (
           <textarea
             readOnly
             autoFocus
-            className="h-[60vh] block w-full overflow-auto whitespace-pre rounded-lg bg-black/30 p-4 text-sm font-mono leading-normal outline-0 resize-none"
+            className="h-[60vh] block w-full overflow-auto whitespace-pre rounded bg-black/30 p-4 text-sm font-mono leading-normal outline-0 resize-none"
             style={{
               tabSize: 2,
             }}
