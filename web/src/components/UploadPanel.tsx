@@ -23,7 +23,7 @@ export function UploadPanel(props: UploadPanelProps) {
     <Paper
       className="px-4 py-4"
       elevation={0}
-      sx={{ borderRadius: 1, backgroundColor: "rgba(255, 255, 255, 0.06)" }}
+      sx={{ borderRadius: 2, backgroundColor: "rgba(255, 255, 255, 0.06)" }}
     >
       <div className="mb-2 flex items-center justify-between gap-2">
         <Typography variant="h6" sx={{ fontWeight: 700 }}>
@@ -46,7 +46,7 @@ export function UploadPanel(props: UploadPanelProps) {
           py: 10,
           textAlign: "center",
           transition: "border-color 0.3s, background-color 0.3s",
-          borderRadius: 1,
+          borderRadius: 2,
           border: "2px dashed rgba(255, 255, 255, 0.2)",
           backgroundColor: "rgba(255, 255, 255, 0.03)",
           cursor: uploading ? "default" : "pointer",

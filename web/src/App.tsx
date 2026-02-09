@@ -231,7 +231,7 @@ export default function App() {
         className="mb-4 overflow-hidden"
         elevation={0}
         sx={{
-          borderRadius: 1,
+          borderRadius: 2,
           backgroundColor: "rgba(255, 255, 255, 0.06)",
         }}
       >

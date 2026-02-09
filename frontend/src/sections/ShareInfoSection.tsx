@@ -30,7 +30,7 @@ export function ShareInfoSection() {
   const serverUrl = serverInfo?.url;
 
   return (
-    <div className="py-1 my-2 rounded flex flex-col items-center">
+    <div className="py-1 my-2 rounded-md flex flex-col items-center">
       <KV
         k="共享文件夹"
         hidden={!serverUrl}

@@ -28,7 +28,7 @@ export default function App() {
     <>
       <div className="max-w-215 mx-auto relative p-4">
         <Stack direction="row" gap={4}>
-          <div className="w-full bg-white/5 rounded border border-white/10 p-4">
+          <div className="w-full bg-white/5 rounded-md border border-white/10 p-4">
             <ShareControlSection />
 
             <ShareInfoSection />
@@ -44,7 +44,7 @@ export default function App() {
             mt: 4,
             p: 4,
             backgroundColor: "rgba(255, 255, 255, 0.05)",
-            borderRadius: 1,
+            borderRadius: 2,
             border: "1px solid rgba(255, 255, 255, 0.1)",
           }}
         >
