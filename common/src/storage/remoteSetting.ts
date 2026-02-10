@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { create } from "zustand";
 
 import type { Setter } from "./TypedStorage";
 import { getWebToken } from "./web-token";
@@ -82,6 +83,8 @@ export const remoteSetting = {
   set: setRemoteSetting,
 } as const;
 
+const useStore = create<Record<string, any>>((set) => ({}));
+
 export function useRemoteSetting<T>(
   key: string,
   fallback?: undefined,
@@ -99,7 +102,7 @@ export function useRemoteSetting<T>(
   { loading: boolean; error: Error | null },
 ];
 export function useRemoteSetting<T>(key: string, fallback?: T) {
-  const [state, setState] = useState<T | undefined>();
+  const state = useStore((s) => s[key]) as T | undefined;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const fallbackRef = useRef(fallback);
@@ -117,9 +120,13 @@ export function useRemoteSetting<T>(key: string, fallback?: T) {
         const v = await remoteSetting.get<T>(key);
         if (cancelled) return;
         if (v !== undefined) {
-          setState(v);
+          useStore.setState(() => ({
+            [key]: v,
+          }));
         } else {
-          setState(undefined);
+          useStore.setState(() => ({
+            [key]: fallbackRef.current,
+          }));
         }
       } catch (e) {
         if (!cancelled) {
@@ -139,18 +146,19 @@ export function useRemoteSetting<T>(key: string, fallback?: T) {
 
   const setValue = useCallback(
     (value: Setter<T | undefined>) => {
-      setState((prev) => {
-        const next =
-          typeof value === "function"
-            ? (value as Func<[T | undefined], T | undefined>)(
-                prev ?? fallbackRef.current,
-              )
-            : value;
-        void remoteSetting.set(key, next).catch(() => {
-          // ignore
-        });
-        return next;
+      const prev = useStore.getState()[key] as T | undefined;
+      const next =
+        typeof value === "function"
+          ? (value as Func<[T | undefined], T | undefined>)(
+              prev ?? fallbackRef.current,
+            )
+          : value;
+      void remoteSetting.set(key, next).catch(() => {
+        // ignore
       });
+      useStore.setState(() => ({
+        [key]: next,
+      }));
     },
     [key],
   );
