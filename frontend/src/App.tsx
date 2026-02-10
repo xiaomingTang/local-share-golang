@@ -1,10 +1,11 @@
+import { Divider, Grid } from "@mui/material";
+import { mutate } from "swr";
+import toast from "react-hot-toast";
+
 import { GithubBadge } from "./sections/GithubBadge";
-import { Divider, Grid, Stack } from "@mui/material";
 import { UpdateSection } from "./sections/UpdateSection";
 import { DropOverlay } from "./dragdrop/DropOverlay";
 import { useEventsOn } from "./hooks/useEventsOn";
-import { mutate } from "swr";
-import toast from "react-hot-toast";
 import { ShareControlSection } from "./sections/ShareControlSection";
 import { ShareInfoSection } from "./sections/ShareInfoSection";
 import { ShareQrSection } from "./sections/ShareQrSection";
@@ -27,15 +28,13 @@ export default function App() {
   return (
     <>
       <div className="max-w-215 mx-auto relative p-4">
-        <Stack direction="row" gap={4}>
-          <div className="w-full bg-white/5 rounded-md border border-white/10 p-4">
-            <ShareControlSection />
+        <div className="bg-white/5 rounded-md border border-white/10 p-4">
+          <ShareControlSection />
 
-            <ShareInfoSection />
+          <ShareInfoSection />
 
-            <ShareQrSection />
-          </div>
-        </Stack>
+          <ShareQrSection />
+        </div>
 
         <Grid
           container

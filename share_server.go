@@ -889,6 +889,17 @@ func (s *ShareServer) handleEvents(w http.ResponseWriter, r *http.Request) {
 	s.events.ServeHTTP(w, r)
 }
 
+func (s *ShareServer) emitSettingChanged(key string, value json.RawMessage) {
+	if s == nil || s.events == nil {
+		return
+	}
+	s.events.broadcast("settingsChanged", map[string]any{
+		"key":   key,
+		"value": value,
+		"ts":    time.Now().UTC().Format(time.RFC3339Nano),
+	})
+}
+
 func (s *ShareServer) handleSettings(w http.ResponseWriter, r *http.Request) {
 	if s.settings == nil {
 		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "settings store not available"})
@@ -948,6 +959,7 @@ func (s *ShareServer) handleSettings(w http.ResponseWriter, r *http.Request) {
 				writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "delete setting failed"})
 				return
 			}
+			s.emitSettingChanged(key, json.RawMessage("null"))
 			writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 			return
 		}
@@ -960,6 +972,7 @@ func (s *ShareServer) handleSettings(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "save setting failed"})
 			return
 		}
+		s.emitSettingChanged(key, req.Value)
 		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 		return
 	default:

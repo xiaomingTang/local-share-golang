@@ -7,9 +7,9 @@ export type DirectoryListProps = {
   currentPath: string;
   items: DirectoryItem[];
   selected: ReadonlySet<string>;
-  loadingText?: string;
-  errorText?: string;
-  emptyText?: string;
+  loadingText?: string | undefined;
+  errorText?: string | undefined;
+  emptyText?: string | undefined;
   onOpenFolder: (folderName: string) => void;
   onToggleSelect: (fileName: string, checked: boolean) => void;
   onOpenPreview: (fileName: string) => void;

@@ -7,6 +7,7 @@ import {
   Typography,
 } from "@mui/material";
 import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
+import ChatIcon from "@mui/icons-material/Chat";
 import clsx from "clsx";
 
 export type SelectionBarProps = {
@@ -16,6 +17,7 @@ export type SelectionBarProps = {
   onSelectAll: (checked: boolean) => void;
   onDownloadSelected: () => void;
   onOpenDownloadSettings: () => void;
+  onOpenChat: () => void;
   onDeleteSelected: () => void;
   onClearSelection: () => void;
 };
@@ -28,6 +30,7 @@ export function SelectionBar(props: SelectionBarProps) {
     onSelectAll,
     onDownloadSelected,
     onOpenDownloadSettings,
+    onOpenChat,
     onDeleteSelected,
     onClearSelection,
   } = props;
@@ -66,6 +69,13 @@ export function SelectionBar(props: SelectionBarProps) {
           <Typography variant="body2">已选 {selectedTotal} 项</Typography>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <Tooltip title="聊天">
+            <span>
+              <IconButton size="small" onClick={onOpenChat}>
+                <ChatIcon fontSize="small" />
+              </IconButton>
+            </span>
+          </Tooltip>
           <Tooltip title="下载设置">
             <span>
               <IconButton size="small" onClick={onOpenDownloadSettings}>
