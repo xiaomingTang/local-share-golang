@@ -14,6 +14,7 @@ import { DirectoryList } from "./components/DirectoryList";
 import { PreviewDialog } from "./components/PreviewDialog";
 import { SelectionBar } from "./components/SelectionBar";
 import { UploadPanel } from "./components/UploadPanel";
+import { ChatBox } from "./components/ChatBox";
 import {
   buildIgnoreList,
   DEFAULT_IGNORE_PRESETS,
@@ -217,6 +218,7 @@ export default function App() {
         selectedTotal={selected.size}
         onSelectAll={onSelectAll}
         onDownloadSelected={() => void downloadSelected()}
+        onOpenChat={cat(async () => NiceModal.show(ChatBox))}
         onOpenDownloadSettings={cat(async () =>
           NiceModal.show(DownloadZipSettingsDialog, {
             value: downloadSettings,

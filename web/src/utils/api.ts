@@ -81,7 +81,7 @@ export async function uploadFilesWithProgress(opts: {
 
 function uploadFilesWithProgressXHR(opts: {
   formData: FormData;
-  onProgress?: (pct: number) => void;
+  onProgress?: ((pct: number) => void) | undefined;
 }) {
   const { formData, onProgress } = opts;
 

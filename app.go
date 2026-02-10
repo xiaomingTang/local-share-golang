@@ -188,12 +188,20 @@ func (a *App) SetSetting(key string, value string) error {
 
 	value = strings.TrimSpace(value)
 	if value == "" || value == "null" {
-		return a.shareServer.settings.Delete(key)
+		if err := a.shareServer.settings.Delete(key); err != nil {
+			return err
+		}
+		a.shareServer.emitSettingChanged(key, json.RawMessage("null"))
+		return nil
 	}
 	if !json.Valid([]byte(value)) {
 		return errors.New("invalid json")
 	}
-	return a.shareServer.settings.Set(key, json.RawMessage(value))
+	if err := a.shareServer.settings.Set(key, json.RawMessage(value)); err != nil {
+		return err
+	}
+	a.shareServer.emitSettingChanged(key, json.RawMessage(value))
+	return nil
 }
 
 // OpenFolder opens the given path in the OS file explorer.

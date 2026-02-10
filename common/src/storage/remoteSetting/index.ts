@@ -1,13 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { create } from "zustand";
 
-import type { Setter } from "./TypedStorage";
-import { getWebToken } from "./web-token";
-
-function hasWailsSettingsBridge(): boolean {
-  const w = globalThis as any;
-  return Boolean(w?.go?.main?.App?.GetSetting && w?.go?.main?.App?.SetSetting);
-}
+import type { Setter } from "../TypedStorage";
+import { getWebToken } from "../web-token";
+import { hasWailsSettingsBridge } from "./settingsBridge";
+import { addSettingsListener, removeSettingsListener } from "./events";
 
 async function wailsGet(key: string): Promise<string> {
   const w = globalThis as any;
@@ -141,6 +138,53 @@ export function useRemoteSetting<T>(key: string, fallback?: T) {
 
     return () => {
       cancelled = true;
+    };
+  }, [key]);
+
+  useEffect(() => {
+    if (!key) return;
+    if (typeof window === "undefined") return;
+    const canUseSse =
+      !hasWailsSettingsBridge() && typeof window.EventSource !== "undefined";
+    if (canUseSse) return;
+
+    let stopped = false;
+
+    async function refresh() {
+      try {
+        const v = await remoteSetting.get<T>(key);
+        if (stopped) return;
+        useStore.setState(() => ({
+          [key]: v !== undefined ? v : fallbackRef.current,
+        }));
+      } catch {
+        // ignore
+      }
+    }
+
+    void refresh();
+    const timer = window.setInterval(refresh, 1000);
+
+    return () => {
+      stopped = true;
+      window.clearInterval(timer);
+    };
+  }, [key]);
+
+  useEffect(() => {
+    if (!key) return;
+    if (hasWailsSettingsBridge()) return;
+    const onChange = (next: unknown) => {
+      const normalized =
+        next === null || typeof next === "undefined" ? undefined : (next as T);
+      useStore.setState(() => ({
+        [key]: normalized,
+      }));
+    };
+
+    addSettingsListener(key, onChange);
+    return () => {
+      removeSettingsListener(key, onChange);
     };
   }, [key]);
 
