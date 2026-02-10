@@ -13,13 +13,14 @@ import {
   useTheme,
 } from "@mui/material";
 import { useChat } from "common/hooks/useChat";
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import NiceModal, { useModal } from "@ebay/nice-modal-react";
 import { muiDialogV5ReplaceOnClose } from "common/utils/muiDialogV5ReplaceOnClose";
 import { autoFocus } from "common/utils/autoFocus";
 import { useHover } from "common/hooks/useHover";
 import { Delay } from "common/components/Delay";
 import { CopyButton } from "./CopyButton";
+import { useViewportHeight } from "src/hooks/useViewportHeight";
 
 interface ChatBoxProps {
   className?: string;
@@ -88,6 +89,23 @@ export const ChatBox = NiceModal.create(function ChatBox(_: ChatBoxProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const anchor = isMobile ? "bottom" : "left";
+  const viewportHeight = useViewportHeight();
+  const elemRef = useRef<HTMLElement | null>(null);
+
+  const mobilePaperHeight = useMemo(() => {
+    if (!isMobile) return undefined;
+    if (!viewportHeight) return "clamp(300px, 80vh, 560px)";
+    return `${viewportHeight * 0.9}px`;
+  }, [isMobile, viewportHeight]);
+
+  useEffect(() => {
+    window.setTimeout(() => {
+      elemRef.current?.scrollIntoView({
+        block: "end",
+        behavior: "smooth",
+      });
+    }, 50);
+  }, [viewportHeight]);
 
   return (
     <Drawer
@@ -97,7 +115,7 @@ export const ChatBox = NiceModal.create(function ChatBox(_: ChatBoxProps) {
         paper: {
           sx: {
             width: isMobile ? "100%" : "clamp(300px, 80vw, 600px)",
-            height: isMobile ? "clamp(300px, 80vh, 560px)" : "100%",
+            height: isMobile ? mobilePaperHeight : "100%",
             backgroundColor: "#01132d",
           },
         },
@@ -141,7 +159,7 @@ export const ChatBox = NiceModal.create(function ChatBox(_: ChatBoxProps) {
         )}
         {modal.visible && (
           <Delay ms={300}>
-            <Box sx={{ p: 2 }}>
+            <Box sx={{ p: 2 }} ref={elemRef}>
               <OutlinedInput
                 autoFocus
                 ref={autoFocus}
