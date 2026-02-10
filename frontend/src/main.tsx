@@ -7,6 +7,8 @@ import NiceModal from "@ebay/nice-modal-react";
 
 import { CssBaseline, ThemeProvider, createTheme } from "@mui/material";
 
+import { CHAT_MESSAGES_KEY } from "common/hooks/useChat";
+import { remoteSetting } from "common/storage";
 import App from "./App";
 import { Toaster } from "react-hot-toast";
 import { SWRConfig } from "swr";
@@ -24,6 +26,10 @@ const theme = createTheme({
       textTransform: "none",
     },
   },
+});
+
+void remoteSetting.set(CHAT_MESSAGES_KEY, []).catch(() => {
+  // ignore
 });
 
 ReactDOM.createRoot(document.getElementById("app")!).render(

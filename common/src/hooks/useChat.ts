@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import { useRemoteSetting } from "../storage";
 
-const CHAT_MESSAGES_KEY = "local-share:chat-messages" as const;
+export const CHAT_MESSAGES_KEY = "local-share:chat-messages" as const;
 
 export function useChat() {
   const [messages, setMessages] = useRemoteSetting(
