@@ -1,5 +1,6 @@
 import { cat } from "common/error/catch-and-toast";
 import { Box, Button, ButtonGroup } from "@mui/material";
+import ChatIcon from "@mui/icons-material/Chat";
 import useSWR from "swr";
 import {
   GetServerInfo,
@@ -7,6 +8,8 @@ import {
   StartSharing,
   StopSharing,
 } from "wailsjs/go/main/App";
+import NiceModal from "@ebay/nice-modal-react";
+import { ChatBox } from "./ChatBox";
 
 export function ShareControlSection() {
   const { data: serverInfo, mutate: mutateServerInfo } = useSWR(
@@ -39,6 +42,12 @@ export function ShareControlSection() {
           })}
         >
           停止共享
+        </Button>
+        <Button
+          disabled={!sharedFolder}
+          onClick={() => NiceModal.show(ChatBox)}
+        >
+          <ChatIcon sx={{ fontSize: "14px", color: "inherit" }} />
         </Button>
       </ButtonGroup>
     </Box>
