@@ -23,7 +23,7 @@ export function useCopy(delayMs = 2000) {
 }
 
 interface CopyButtonProps extends Omit<IconButtonProps, "children"> {
-  text?: string;
+  text?: string | undefined;
 }
 
 export function CopyButton(props: CopyButtonProps) {
