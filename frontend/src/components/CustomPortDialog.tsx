@@ -34,9 +34,9 @@ function parsePortInputText(input: string): {
 
 export interface CustomPortDialogProps {
   value: string;
-  serverInfo?: main.ServerInfo;
-  onSave?: (value: string) => void;
-  onApply?: (value: string) => Promise<void>;
+  serverInfo?: main.ServerInfo | undefined;
+  onSave?: ((value: string) => void) | undefined;
+  onApply?: ((value: string) => Promise<void>) | undefined;
 }
 
 export const CustomPortDialog = NiceModal.create(

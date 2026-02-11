@@ -126,9 +126,9 @@ export function SettingOfAccessPass() {
 }
 
 type PermissionSetting = {
-  read?: boolean;
-  write?: boolean;
-  delete?: boolean;
+  read?: boolean | undefined;
+  write?: boolean | undefined;
+  delete?: boolean | undefined;
 };
 
 const DEFAULT_PERMISSIONS: PermissionSetting = {
