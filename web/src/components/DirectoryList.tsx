@@ -105,11 +105,13 @@ export function DirectoryList(props: DirectoryListProps) {
                   </Button>
                 ) : (
                   <>
-                    <FileActionIconButton
-                      label="预览页"
-                      icon={<OpenInNewFileIcon />}
-                      onClick={() => onOpenFilePage(it.name)}
-                    />
+                    {previewable && (
+                      <FileActionIconButton
+                        label="预览页"
+                        icon={<OpenInNewFileIcon />}
+                        onClick={() => onOpenFilePage(it.name)}
+                      />
+                    )}
                     {previewable && (
                       <FileActionIconButton
                         label="预览"
