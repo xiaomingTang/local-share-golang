@@ -4,18 +4,18 @@ import { getWebToken, setWebToken } from "common/storage/web-token";
 import { ensureShareToken } from "./auth";
 
 export class ApiError extends Error {
-  status?: number;
-  code?: string;
+  status?: number | undefined;
+  code?: string | undefined;
   payload?: any;
-  response?: Response;
+  response?: Response | undefined;
 
   constructor(
     message: string,
     opts?: {
-      status?: number;
-      code?: string;
+      status?: number | undefined;
+      code?: string | undefined;
       payload?: any;
-      response?: Response;
+      response?: Response | undefined;
     },
   ) {
     super(message);
@@ -71,7 +71,7 @@ function isAuthEndpoint(url: string): boolean {
 
 async function parseErrorPayload(
   response: Response,
-): Promise<{ payload: any; message: string; code?: string }> {
+): Promise<{ payload: any; message: string; code?: string | undefined }> {
   const ct = (response.headers.get("content-type") || "").toLowerCase();
   if (ct.includes("application/json")) {
     const payload = (await response
