@@ -16,6 +16,7 @@ import { SilentError } from "common/error/silent-error";
 import { fetchPreview } from "src/utils/api";
 import { isImageType } from "src/utils/fileUtils";
 import { useObjectURL } from "src/hooks/useObjectURL";
+import { DownloadFileIcon, FileActionIconButton } from "./FileActionIconButton";
 
 export type PreviewDialogProps = {
   title: string;
@@ -95,9 +96,12 @@ export const PreviewDialog = NiceModal.create((props: PreviewDialogProps) => {
         >
           关闭
         </Button>
-        <Button onClick={onDownload} variant="contained">
-          下载
-        </Button>
+        <FileActionIconButton
+          label="下载"
+          icon={<DownloadFileIcon />}
+          tone="filled"
+          onClick={onDownload}
+        />
       </DialogActions>
     </Dialog>
   );

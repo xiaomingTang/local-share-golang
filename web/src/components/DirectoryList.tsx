@@ -2,6 +2,11 @@ import { Button, Checkbox } from "@mui/material";
 import type { DirectoryItem } from "src/types";
 import { canPreview, formatFileSize, getFileIcon } from "src/utils/fileUtils";
 import clsx from "clsx";
+import {
+  DownloadFileIcon,
+  FileActionIconButton,
+  PreviewFileIcon,
+} from "./FileActionIconButton";
 
 export type DirectoryListProps = {
   currentPath: string;
@@ -94,21 +99,18 @@ export function DirectoryList(props: DirectoryListProps) {
                 ) : (
                   <>
                     {previewable && (
-                      <Button
-                        size="small"
-                        variant="outlined"
+                      <FileActionIconButton
+                        label="预览"
+                        icon={<PreviewFileIcon />}
                         onClick={() => onOpenPreview(it.name)}
-                      >
-                        预览
-                      </Button>
+                      />
                     )}
-                    <Button
-                      size="small"
-                      variant="contained"
+                    <FileActionIconButton
+                      label="下载"
+                      icon={<DownloadFileIcon />}
+                      tone="filled"
                       onClick={() => onDownloadFile(it.name)}
-                    >
-                      下载
-                    </Button>
+                    />
                   </>
                 )}
               </div>
