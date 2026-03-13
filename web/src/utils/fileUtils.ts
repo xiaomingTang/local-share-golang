@@ -12,51 +12,16 @@ export function isImageType(contentType: string) {
   return (contentType || "").toLowerCase().startsWith("image/");
 }
 
-export function canPreview(item: DirectoryItem) {
-  if (item.type === "directory") return false;
-  const ext = item.extension || "";
-  const previewableExts = new Set([
-    ".ico",
-    ".jpg",
-    ".jpeg",
-    ".png",
-    ".gif",
-    ".bmp",
-    ".svg",
-    ".txt",
-    ".md",
-    ".json",
-    ".html",
-    ".css",
-    ".js",
-    ".ts",
-    ".go",
-    ".py",
-    ".java",
-    ".c",
-    ".h",
-    ".cpp",
-    ".hpp",
-    ".rs",
-    ".php",
-    ".rb",
-    ".cs",
-    ".kt",
-    ".swift",
-    ".sh",
-    ".bat",
-    ".ps1",
-    ".sql",
-    ".toml",
-    ".ini",
-    ".env",
-    ".xml",
-    ".yml",
-    ".yaml",
-    ".csv",
-    ".log",
-  ]);
-  return previewableExts.has(ext) && item.size < 10 * 1024 * 1024;
+export function isPreviewSupported(item: DirectoryItem) {
+  return item.type === "file" && item.preview?.supported === true;
+}
+
+export function getPreviewReasonText(item: DirectoryItem) {
+  const reason = item.preview?.reason || "";
+  if (reason === "file_too_large") {
+    return "文件过大，暂不支持在线预览";
+  }
+  return "不支持的文件类型";
 }
 
 export function getFileIcon(item: DirectoryItem) {
@@ -124,7 +89,7 @@ export function getFileIcon(item: DirectoryItem) {
     ".ini": "⚙️",
     ".env": "⚙️",
   };
-  return iconMap[ext] || (canPreview(item) ? "📄" : "❔");
+  return iconMap[ext] || (isPreviewSupported(item) ? "📄" : "❔");
 }
 
 export function download(url: string, filename: string) {

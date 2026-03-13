@@ -1,10 +1,15 @@
 import { Button, Checkbox } from "@mui/material";
 import type { DirectoryItem } from "src/types";
-import { canPreview, formatFileSize, getFileIcon } from "src/utils/fileUtils";
+import {
+  formatFileSize,
+  getFileIcon,
+  isPreviewSupported,
+} from "src/utils/fileUtils";
 import clsx from "clsx";
 import {
   DownloadFileIcon,
   FileActionIconButton,
+  OpenInNewFileIcon,
   PreviewFileIcon,
 } from "./FileActionIconButton";
 
@@ -16,6 +21,7 @@ export type DirectoryListProps = {
   errorText?: string | undefined;
   emptyText?: string | undefined;
   onOpenFolder: (folderName: string) => void;
+  onOpenFilePage: (fileName: string) => void;
   onToggleSelect: (fileName: string, checked: boolean) => void;
   onOpenPreview: (fileName: string) => void;
   onDownloadFile: (fileName: string) => void;
@@ -31,6 +37,7 @@ export function DirectoryList(props: DirectoryListProps) {
     errorText,
     emptyText,
     onOpenFolder,
+    onOpenFilePage,
     onToggleSelect,
     onOpenPreview,
     onDownloadFile,
@@ -46,7 +53,7 @@ export function DirectoryList(props: DirectoryListProps) {
 
         {items.map((it) => {
           const isDir = it.type === "directory";
-          const previewable = canPreview(it);
+          const previewable = isPreviewSupported(it);
           const isSelected = selected.has(buildFilePath(currentPath, it.name));
           const date = new Date(it.modified).toISOString().split("T")[0];
           const size = it.type === "file" ? formatFileSize(it.size) : "";
@@ -62,7 +69,7 @@ export function DirectoryList(props: DirectoryListProps) {
               )}
               onDoubleClick={() => {
                 if (isDir) onOpenFolder(it.name);
-                else if (previewable) onOpenPreview(it.name);
+                else onOpenFilePage(it.name);
               }}
             >
               <Checkbox
@@ -98,6 +105,11 @@ export function DirectoryList(props: DirectoryListProps) {
                   </Button>
                 ) : (
                   <>
+                    <FileActionIconButton
+                      label="预览页"
+                      icon={<OpenInNewFileIcon />}
+                      onClick={() => onOpenFilePage(it.name)}
+                    />
                     {previewable && (
                       <FileActionIconButton
                         label="预览"

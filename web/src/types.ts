@@ -1,5 +1,14 @@
 export type DirectoryItemType = "file" | "directory";
 
+export type PreviewKind = "image" | "text" | "unsupported";
+
+export interface PreviewInfo {
+  supported: boolean;
+  kind: PreviewKind;
+  contentType: string | null;
+  reason: string | null;
+}
+
 export interface DirectoryItem {
   name: string;
   type: DirectoryItemType;
@@ -7,6 +16,7 @@ export interface DirectoryItem {
   size: number;
   modified: string;
   extension: string | null;
+  preview: PreviewInfo | null;
 }
 
 export interface FilesResponse {
@@ -14,6 +24,15 @@ export interface FilesResponse {
   rootName: string;
   currentPath: string;
   parentPath: string | null;
+}
+
+export interface PathInfoResponse {
+  kind: DirectoryItemType;
+  rootName: string;
+  currentPath: string;
+  parentPath: string | null;
+  item?: DirectoryItem | null;
+  items?: DirectoryItem[];
 }
 
 export interface DeleteResponse {

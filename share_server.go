@@ -46,6 +46,52 @@ const authTokenRenewBefore = 2 * time.Minute
 
 const authRateWindow = 10 * time.Second
 const authRateMaxRequestsPerWindow = 5
+const maxPreviewBytes int64 = 10 * 1024 * 1024
+
+var imagePreviewContentTypes = map[string]string{
+	".ico":  "image/x-icon",
+	".jpg":  "image/jpeg",
+	".jpeg": "image/jpeg",
+	".png":  "image/png",
+	".gif":  "image/gif",
+	".bmp":  "image/bmp",
+	".svg":  "image/svg+xml",
+}
+
+var textPreviewContentTypes = map[string]string{
+	".txt":   "text/plain; charset=utf-8",
+	".log":   "text/plain; charset=utf-8",
+	".md":    "text/markdown; charset=utf-8",
+	".csv":   "text/csv; charset=utf-8",
+	".json":  "application/json; charset=utf-8",
+	".html":  "text/html; charset=utf-8",
+	".xml":   "application/xml; charset=utf-8",
+	".yml":   "text/yaml; charset=utf-8",
+	".yaml":  "text/yaml; charset=utf-8",
+	".css":   "text/css; charset=utf-8",
+	".js":    "application/javascript; charset=utf-8",
+	".ts":    "text/plain; charset=utf-8",
+	".go":    "text/plain; charset=utf-8",
+	".py":    "text/plain; charset=utf-8",
+	".java":  "text/plain; charset=utf-8",
+	".c":     "text/plain; charset=utf-8",
+	".h":     "text/plain; charset=utf-8",
+	".cpp":   "text/plain; charset=utf-8",
+	".hpp":   "text/plain; charset=utf-8",
+	".rs":    "text/plain; charset=utf-8",
+	".php":   "text/plain; charset=utf-8",
+	".rb":    "text/plain; charset=utf-8",
+	".cs":    "text/plain; charset=utf-8",
+	".kt":    "text/plain; charset=utf-8",
+	".swift": "text/plain; charset=utf-8",
+	".sh":    "text/plain; charset=utf-8",
+	".bat":   "text/plain; charset=utf-8",
+	".ps1":   "text/plain; charset=utf-8",
+	".sql":   "text/plain; charset=utf-8",
+	".toml":  "text/plain; charset=utf-8",
+	".ini":   "text/plain; charset=utf-8",
+	".env":   "text/plain; charset=utf-8",
+}
 
 type authTokenEntry struct {
 	ExpiresAt time.Time
@@ -59,12 +105,20 @@ type rateWindowState struct {
 }
 
 type directoryItem struct {
-	Name      string  `json:"name"`
-	Type      string  `json:"type"` // "file" | "directory"
-	Hidden    bool    `json:"hidden"`
-	Size      int64   `json:"size"`
-	Modified  string  `json:"modified"`
-	Extension *string `json:"extension"`
+	Name      string       `json:"name"`
+	Type      string       `json:"type"` // "file" | "directory"
+	Hidden    bool         `json:"hidden"`
+	Size      int64        `json:"size"`
+	Modified  string       `json:"modified"`
+	Extension *string      `json:"extension"`
+	Preview   *previewInfo `json:"preview,omitempty"`
+}
+
+type previewInfo struct {
+	Supported   bool   `json:"supported"`
+	Kind        string `json:"kind"`
+	ContentType string `json:"contentType,omitempty"`
+	Reason      string `json:"reason,omitempty"`
 }
 
 type filesResponse struct {
@@ -72,6 +126,15 @@ type filesResponse struct {
 	RootName    string          `json:"rootName"`
 	CurrentPath string          `json:"currentPath"`
 	ParentPath  *string         `json:"parentPath"`
+}
+
+type pathInfoResponse struct {
+	Kind        string          `json:"kind"`
+	RootName    string          `json:"rootName"`
+	CurrentPath string          `json:"currentPath"`
+	ParentPath  *string         `json:"parentPath"`
+	Item        *directoryItem  `json:"item,omitempty"`
+	Items       []directoryItem `json:"items,omitempty"`
 }
 
 type ShareServer struct {
@@ -870,6 +933,7 @@ func (s *ShareServer) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/auth", s.handleAuth)
 	mux.HandleFunc("/api/download", s.handleDownload)
 	mux.HandleFunc("/api/download-zip", s.handleDownloadZip)
+	mux.HandleFunc("/api/path-info", s.handlePathInfo)
 	mux.HandleFunc("/api/preview", s.handlePreview)
 	mux.HandleFunc("/api/upload", s.handleUpload)
 	mux.HandleFunc("/api/delete", s.handleDelete)
@@ -1051,6 +1115,59 @@ func (s *ShareServer) handleFiles(w http.ResponseWriter, r *http.Request) {
 		CurrentPath: subPath,
 		ParentPath:  parentPath,
 	}
+	writeJSON(w, http.StatusOK, resp)
+}
+
+func (s *ShareServer) handlePathInfo(w http.ResponseWriter, r *http.Request) {
+	s.mu.RLock()
+	root := s.sharedRoot
+	s.mu.RUnlock()
+	if root == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "服务未启动"})
+		return
+	}
+	if !s.requireAuth(w, r) {
+		return
+	}
+	if !s.requirePermission(w, "read") {
+		return
+	}
+
+	subPath := r.URL.Query().Get("path")
+	fullPath, ok := safeJoin(root, subPath)
+	if !ok {
+		writeJSON(w, http.StatusForbidden, map[string]string{"error": "无权限访问此路径"})
+		return
+	}
+
+	st, err := os.Stat(fullPath)
+	if err != nil {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "路径不存在"})
+		return
+	}
+
+	currentPath := relativeSharePath(root, fullPath)
+	resp := pathInfoResponse{
+		RootName:    sharedRootName(root),
+		CurrentPath: currentPath,
+		ParentPath:  parentSharePath(currentPath),
+	}
+
+	if st.IsDir() {
+		items, err := getDirectoryItems(fullPath)
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "读取文件夹失败"})
+			return
+		}
+		resp.Kind = "directory"
+		resp.Items = items
+		writeJSON(w, http.StatusOK, resp)
+		return
+	}
+
+	item := buildDirectoryItem(filepath.Dir(fullPath), filepath.Base(fullPath), st)
+	resp.Kind = "file"
+	resp.Item = &item
 	writeJSON(w, http.StatusOK, resp)
 }
 
@@ -1482,52 +1599,18 @@ func (s *ShareServer) handlePreview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ext := strings.ToLower(filepath.Ext(fullPath))
-	mimeType := map[string]string{
-		".ico":   "image/x-icon",
-		".jpg":   "image/jpeg",
-		".jpeg":  "image/jpeg",
-		".png":   "image/png",
-		".gif":   "image/gif",
-		".bmp":   "image/bmp",
-		".svg":   "image/svg+xml",
-		".txt":   "text/plain; charset=utf-8",
-		".log":   "text/plain; charset=utf-8",
-		".md":    "text/markdown; charset=utf-8",
-		".csv":   "text/csv; charset=utf-8",
-		".json":  "application/json; charset=utf-8",
-		".html":  "text/html; charset=utf-8",
-		".xml":   "application/xml; charset=utf-8",
-		".yml":   "text/yaml; charset=utf-8",
-		".yaml":  "text/yaml; charset=utf-8",
-		".css":   "text/css; charset=utf-8",
-		".js":    "application/javascript; charset=utf-8",
-		".ts":    "text/plain; charset=utf-8",
-		".go":    "text/plain; charset=utf-8",
-		".py":    "text/plain; charset=utf-8",
-		".java":  "text/plain; charset=utf-8",
-		".c":     "text/plain; charset=utf-8",
-		".h":     "text/plain; charset=utf-8",
-		".cpp":   "text/plain; charset=utf-8",
-		".hpp":   "text/plain; charset=utf-8",
-		".rs":    "text/plain; charset=utf-8",
-		".php":   "text/plain; charset=utf-8",
-		".rb":    "text/plain; charset=utf-8",
-		".cs":    "text/plain; charset=utf-8",
-		".kt":    "text/plain; charset=utf-8",
-		".swift": "text/plain; charset=utf-8",
-		".sh":    "text/plain; charset=utf-8",
-		".bat":   "text/plain; charset=utf-8",
-		".ps1":   "text/plain; charset=utf-8",
-		".sql":   "text/plain; charset=utf-8",
-		".toml":  "text/plain; charset=utf-8",
-		".ini":   "text/plain; charset=utf-8",
-		".env":   "text/plain; charset=utf-8",
-	}[ext]
-	if mimeType == "" {
-		mimeType = "application/octet-stream"
+	preview := classifyPreview(filepath.Base(fullPath), st.Size())
+	if preview == nil || !preview.Supported {
+		status := http.StatusUnsupportedMediaType
+		message := "不支持的文件类型"
+		if preview != nil && preview.Reason == "file_too_large" {
+			status = http.StatusRequestEntityTooLarge
+			message = "文件过大，暂不支持在线预览"
+		}
+		writeJSON(w, status, map[string]string{"error": message})
+		return
 	}
-	w.Header().Set("Content-Type", mimeType)
+	w.Header().Set("Content-Type", preview.ContentType)
 	http.ServeFile(w, r, fullPath)
 }
 
@@ -1802,23 +1885,7 @@ func getDirectoryItems(dirPath string) ([]directoryItem, error) {
 		if err != nil {
 			continue
 		}
-		isDir := info.IsDir()
-		name := entry.Name()
-
-		var ext *string
-		if !isDir {
-			e := strings.ToLower(filepath.Ext(name))
-			ext = &e
-		}
-
-		items = append(items, directoryItem{
-			Name:      name,
-			Type:      map[bool]string{true: "directory", false: "file"}[isDir],
-			Hidden:    isHiddenPath(dirPath, name),
-			Size:      map[bool]int64{true: 0, false: info.Size()}[isDir],
-			Modified:  info.ModTime().UTC().Format(time.RFC3339),
-			Extension: ext,
-		})
+		items = append(items, buildDirectoryItem(dirPath, entry.Name(), info))
 	}
 
 	sort.Slice(items, func(i, j int) bool {
@@ -1829,6 +1896,70 @@ func getDirectoryItems(dirPath string) ([]directoryItem, error) {
 	})
 
 	return items, nil
+}
+
+func buildDirectoryItem(dirPath string, name string, info os.FileInfo) directoryItem {
+	isDir := info.IsDir()
+	var ext *string
+	var preview *previewInfo
+	if !isDir {
+		e := strings.ToLower(filepath.Ext(name))
+		ext = &e
+		preview = classifyPreview(name, info.Size())
+	}
+
+	return directoryItem{
+		Name:      name,
+		Type:      map[bool]string{true: "directory", false: "file"}[isDir],
+		Hidden:    isHiddenPath(dirPath, name),
+		Size:      map[bool]int64{true: 0, false: info.Size()}[isDir],
+		Modified:  info.ModTime().UTC().Format(time.RFC3339),
+		Extension: ext,
+		Preview:   preview,
+	}
+}
+
+func classifyPreview(name string, size int64) *previewInfo {
+	if size > maxPreviewBytes {
+		return &previewInfo{Supported: false, Kind: "unsupported", Reason: "file_too_large"}
+	}
+
+	ext := strings.ToLower(filepath.Ext(name))
+	if contentType, ok := imagePreviewContentTypes[ext]; ok {
+		return &previewInfo{Supported: true, Kind: "image", ContentType: contentType}
+	}
+	if contentType, ok := textPreviewContentTypes[ext]; ok {
+		return &previewInfo{Supported: true, Kind: "text", ContentType: contentType}
+	}
+
+	return &previewInfo{Supported: false, Kind: "unsupported", Reason: "extension_not_supported"}
+}
+
+func sharedRootName(root string) string {
+	rootName := filepath.Base(root)
+	if rootName == "" {
+		return root
+	}
+	return rootName
+}
+
+func parentSharePath(currentPath string) *string {
+	if strings.TrimSpace(currentPath) == "" {
+		return nil
+	}
+	parent := filepath.ToSlash(filepath.Dir(filepath.FromSlash(currentPath)))
+	if parent == "." {
+		parent = ""
+	}
+	return &parent
+}
+
+func relativeSharePath(root string, fullPath string) string {
+	rel, err := filepath.Rel(root, fullPath)
+	if err != nil || rel == "." {
+		return ""
+	}
+	return filepath.ToSlash(rel)
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {

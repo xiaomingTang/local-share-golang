@@ -5,6 +5,7 @@ import {
   type SvgIconProps,
 } from "@mui/material";
 import DownloadIcon from "@mui/icons-material/Download";
+import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
 
 type FileActionIconButtonProps = Omit<IconButtonProps, "children"> & {
@@ -19,6 +20,10 @@ export function DownloadFileIcon(props: SvgIconProps) {
 
 export function PreviewFileIcon(props: SvgIconProps) {
   return <VisibilityOutlinedIcon {...props} />;
+}
+
+export function OpenInNewFileIcon(props: SvgIconProps) {
+  return <OpenInNewIcon {...props} />;
 }
 
 export function FileActionIconButton(props: FileActionIconButtonProps) {

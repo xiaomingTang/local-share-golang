@@ -1,19 +1,24 @@
 import { useMemo, useState } from "react";
-import { Paper } from "@mui/material";
+import { Alert, Button, Paper } from "@mui/material";
 import toast from "react-hot-toast";
+import useSWR from "swr";
 import { download } from "./utils/fileUtils";
 import { buildCrumbs } from "./utils/path";
 import {
   deletePaths,
   downloadZipWithIgnore,
+  fetchPathInfo,
   uploadFilesWithProgress,
 } from "./utils/api";
 import { toError } from "common/error/utils";
 import { BreadcrumbNav } from "./components/BreadcrumbNav";
 import { DirectoryList } from "./components/DirectoryList";
+import { ImageFilePage } from "./components/ImageFilePage";
 import { PreviewDialog } from "./components/PreviewDialog";
 import { SelectionBar } from "./components/SelectionBar";
+import { TextFilePage } from "./components/TextFilePage";
 import { UploadPanel } from "./components/UploadPanel";
+import { UnsupportedFilePage } from "./components/UnsupportedFilePage";
 import { ChatBox } from "./components/ChatBox";
 import {
   buildIgnoreList,
@@ -21,7 +26,6 @@ import {
   DownloadZipSettingsDialog,
   type DownloadZipSettingsValue,
 } from "./components/DownloadZipSettingsDialog";
-import { useDirectoryListing } from "./hooks/useDirectoryListing";
 import { useSelection } from "./hooks/useSelection";
 import { useSseDirsRefresh } from "./hooks/useSseDirsRefresh";
 import { useSyncedPath } from "./hooks/useSyncedPath";
@@ -32,6 +36,12 @@ import { ensureShareToken, withTokenQuery } from "./utils/auth";
 
 function buildFilePath(currentPath: string, fileName: string) {
   return currentPath ? `${currentPath}/${fileName}` : fileName;
+}
+
+function getParentPath(path: string) {
+  const parts = (path || "").split("/").filter(Boolean);
+  parts.pop();
+  return parts.join("/");
 }
 
 const DOWNLOAD_SETTINGS_KEY = "localshare.web.downloadZipSettings.v1" as const;
@@ -54,18 +64,23 @@ export default function App() {
     );
 
   const {
-    rootName,
-    items,
-    entriesInFolder,
-    filesError,
-    filesValidating,
-    mutateFiles,
-  } = useDirectoryListing(currentPath);
+    data: pathInfo,
+    error: pathError,
+    isValidating: pathValidating,
+    mutate: mutatePathInfo,
+  } = useSWR(["path-info", currentPath], async ([, path]) => fetchPathInfo(path));
+
+  const rootName = pathInfo?.rootName || "根目录";
+  const isDirectory = pathInfo?.kind === "directory";
+  const currentFile = pathInfo?.kind === "file" ? pathInfo.item || null : null;
+  const items = isDirectory && Array.isArray(pathInfo?.items) ? pathInfo.items : [];
+  const entriesInFolder = items;
+  const refreshPath = currentFile ? pathInfo?.parentPath || "" : currentPath;
 
   useSseDirsRefresh({
-    currentPath,
+    currentPath: refreshPath,
     onRefresh: () => {
-      void mutateFiles();
+      void mutatePathInfo();
     },
   });
 
@@ -77,13 +92,20 @@ export default function App() {
     clearSelection,
   } = useSelection({ currentPath, items: entriesInFolder, buildFilePath });
 
+  const openPreviewByPath = cat(async function openPreviewByPath(
+    filePath: string,
+    title: string,
+  ) {
+    await NiceModal.show(PreviewDialog, {
+      title,
+      filePath,
+      onDownload: () => downloadPath(filePath, title),
+    });
+  });
+
   const openPreview = cat(async function openPreview(fileName: string) {
     const filePath = buildFilePath(currentPath, fileName);
-    await NiceModal.show(PreviewDialog, {
-      title: fileName,
-      filePath,
-      onDownload: () => downloadFile(fileName),
-    });
+    await openPreviewByPath(filePath, fileName);
   });
 
   function onOpenFolder(folderName: string) {
@@ -91,15 +113,24 @@ export default function App() {
     setPath(next);
   }
 
-  function downloadFile(fileName: string) {
+  function openFilePage(fileName: string) {
+    const filePath = buildFilePath(currentPath, fileName);
+    setPath(filePath);
+  }
+
+  function downloadPath(filePath: string, fileName: string) {
     void (async () => {
-      const filePath = buildFilePath(currentPath, fileName);
       await ensureShareToken();
       const downloadUrl = withTokenQuery(
         `/api/download?path=${encodeURIComponent(filePath)}`,
       );
       download(downloadUrl, fileName);
     })();
+  }
+
+  function downloadFile(fileName: string) {
+    const filePath = buildFilePath(currentPath, fileName);
+    downloadPath(filePath, fileName);
   }
 
   async function downloadSelected() {
@@ -166,7 +197,7 @@ export default function App() {
         toast.success(`已删除 ${deleted} 项`);
       }
       clearSelection();
-      await mutateFiles();
+      await mutatePathInfo();
     } catch (e) {
       const msg = e instanceof Error ? e.message : "批量删除失败";
       toast.error(msg);
@@ -189,7 +220,7 @@ export default function App() {
         onProgress: (pct) => setUploadPct(pct),
       });
       toast.success("上传成功");
-      await mutateFiles();
+      await mutatePathInfo();
     } catch (e) {
       const msg = e instanceof Error ? e.message : "上传失败";
       toast.error(msg);
@@ -206,12 +237,89 @@ export default function App() {
   );
 
   const targetLabel = currentPath ? `${rootName}/${currentPath}` : rootName;
-  const directoryLoadingText = filesValidating ? "加载中..." : undefined;
-  const directoryErrorText = filesError
-    ? toError(filesError).message
-    : undefined;
+  const directoryLoadingText = pathValidating ? "加载中..." : undefined;
+  const directoryErrorText = pathError ? toError(pathError).message : undefined;
+  const parentPath = getParentPath(currentPath);
+
+  if (pathError) {
+    return (
+      <div className="mx-auto w-full max-w-5xl px-4 py-6">
+        <Paper
+          elevation={0}
+          sx={{
+            borderRadius: 2,
+            backgroundColor: "rgba(255, 255, 255, 0.06)",
+            p: 3,
+          }}
+        >
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {toError(pathError).message}
+          </Alert>
+          <Button variant="outlined" onClick={() => setPath(parentPath)}>
+            返回上一页
+          </Button>
+        </Paper>
+      </div>
+    );
+  }
+
+  if (!pathInfo && pathValidating) {
+    return (
+      <div className="mx-auto w-full max-w-5xl px-4 py-6">
+        <Paper
+          elevation={0}
+          sx={{
+            borderRadius: 2,
+            backgroundColor: "rgba(255, 255, 255, 0.06)",
+            p: 3,
+          }}
+        >
+          加载中...
+        </Paper>
+      </div>
+    );
+  }
+
+  if (currentFile) {
+    const downloadCurrentFile = () => downloadPath(currentPath, currentFile.name);
+
+    if (currentFile.preview?.supported && currentFile.preview.kind === "image") {
+      return (
+        <ImageFilePage
+          rootName={rootName}
+          currentPath={currentPath}
+          item={currentFile}
+          onNavigate={setPath}
+          onDownload={downloadCurrentFile}
+        />
+      );
+    }
+
+    if (currentFile.preview?.supported && currentFile.preview.kind === "text") {
+      return (
+        <TextFilePage
+          rootName={rootName}
+          currentPath={currentPath}
+          item={currentFile}
+          onNavigate={setPath}
+          onDownload={downloadCurrentFile}
+        />
+      );
+    }
+
+    return (
+      <UnsupportedFilePage
+        rootName={rootName}
+        currentPath={currentPath}
+        item={currentFile}
+        onNavigate={setPath}
+        onDownload={downloadCurrentFile}
+      />
+    );
+  }
+
   return (
-    <div className="mx-auto w-full max-w-4xl px-4 py-6">
+    <div className="mx-auto w-full max-w-5xl px-4 py-6">
       <SelectionBar
         totalInFolder={selectedInThisFolder.total}
         selectedInFolder={selectedInThisFolder.selectedCount}
@@ -246,6 +354,7 @@ export default function App() {
           errorText={directoryErrorText}
           emptyText="此文件夹为空"
           onOpenFolder={onOpenFolder}
+          onOpenFilePage={openFilePage}
           onToggleSelect={onToggleSelect}
           onOpenPreview={openPreview}
           onDownloadFile={downloadFile}

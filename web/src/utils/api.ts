@@ -1,8 +1,16 @@
 import { getWebToken, setWebToken } from "common/storage/web-token";
 
-import type { DeleteResponse, FilesResponse } from "src/types";
+import type { DeleteResponse, FilesResponse, PathInfoResponse } from "src/types";
 import { ensureShareToken } from "./auth";
 import { http } from "./http";
+
+export async function fetchPathInfo(path: string) {
+  return http
+    .get("/api/path-info", {
+      searchParams: { path: path || "" },
+    })
+    .json<PathInfoResponse>();
+}
 
 export async function fetchFiles(path: string) {
   return http
